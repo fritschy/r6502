@@ -1,4 +1,5 @@
 use std::ops::{Index, IndexMut};
+use std::fmt::{Display, Formatter};
 
 type Byte = u8;
 type Word = u16;
@@ -11,7 +12,6 @@ pub trait Reset {
     fn reset(&mut self);
 }
 
-#[derive(Debug)]
 pub struct R6502 {
     pub pc: Word,
 
@@ -33,6 +33,16 @@ pub struct R6502 {
 
     // clock counter
     pub count: u64,
+
+    // allow read and write to memory addresses to be hooked
+    pub read_hook: Option<Box<dyn Fn(&mut R6502, &Memory, u16) -> Option<u8>>>,
+    pub write_hook: Option<Box<dyn Fn(&mut R6502, &mut Memory, u16, u8) -> bool>>,
+}
+
+impl Display for R6502 {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "R6502: A:{:02x}, X:{:02x}, Y:{:02x}, SP:{:04x}, PC:{:04x}, SR:{:08b}", self.a, self.x, self.y, self.sp, self.pc, self.sr)
+    }
 }
 
 impl Reset for R6502 {
@@ -76,7 +86,17 @@ impl R6502 {
             y: 0,
             sr: 0,
             count: 0,
+            write_hook: None,
+            read_hook: None,
         }
+    }
+
+    fn read_handler(&mut self, mem: &Memory, addr: u16) -> Option<u8> {
+        None
+    }
+
+    fn write_handler(&mut self, mem: &mut Memory, addr: u16, val: u8) -> bool {
+        false
     }
 
     pub(crate) fn fetch_byte_with_pc(&mut self, mem: &mut Memory) -> Byte {
@@ -87,12 +107,18 @@ impl R6502 {
 
     pub(crate) fn fetch_byte_with_address(&mut self, mem: &Memory, addr: u16) -> Byte {
         self.count += 1;
-        mem[addr]
+        if let Some(byte) = self.read_handler(mem, addr) {
+            byte
+        } else {
+            mem[addr]
+        }
     }
 
     pub(crate) fn write_byte_to_address(&mut self, mem: &mut Memory, addr: u16, value: u8) {
         self.count += 1;
-        mem[addr] = value;
+        if let false = self.write_handler(mem, addr, value) {
+            mem[addr] = value;
+        }
     }
 
     pub(crate) fn set_flag(&mut self, flag: Byte, val: bool) {

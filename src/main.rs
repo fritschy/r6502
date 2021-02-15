@@ -51,7 +51,7 @@ fn main() {
 
     println!("Executed {} instructions in {}ms", cycles, s);
 
-    println!("{:#?}", cpu);
+    println!("{}", cpu);
     println!("0x2000: {:b}", mem[0x2000]);
     println!("0x2001: {:b}", mem[0x2001]);
 }
