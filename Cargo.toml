@@ -10,3 +10,7 @@ edition = "2018"
 #cursive = "0.16"
 stopwatch = "0.0.7"
 sixfiveohtwo = { path = "sixfiveohtwo/" }
+
+[profile.release]
+lto = true
+codegen-units = 1
