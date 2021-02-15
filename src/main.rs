@@ -96,7 +96,6 @@ impl From<u16> for AMValue {
 pub enum am_select {
     A,
     V,
-    R,   // Accumulator, the only general purpose _R_egister
 }
 
 pub fn implied(cpu: &mut R6502, mem: &mut Memory, mode: am_select) -> AMValue {
@@ -107,14 +106,12 @@ pub fn immediate(cpu: &mut R6502, mem: &mut Memory, mode: am_select) -> AMValue 
     match mode {
         am_select::A => cpu.pc.into(),
         am_select::V => cpu.fetch_byte_with_pc(mem).into(),
-        am_select::R => unreachable!(),
     }
 }
 
 pub fn accumulator(cpu: &mut R6502, mem: &mut Memory, mode: am_select) -> AMValue {
     match mode {
         am_select::V => cpu.a.into(),
-        am_select::R => AMValue::Accumulator,
         am_select::A => AMValue::Accumulator,
     }
 }
@@ -125,7 +122,6 @@ pub fn absolute(cpu: &mut R6502, mem: &mut Memory, mode: am_select) -> AMValue {
     match mode {
         am_select::A => addr.into(),
         am_select::V => cpu.fetch_byte_with_address(mem, addr).into(),
-        am_select::R => unreachable!(),
     }
 }
 
@@ -135,7 +131,6 @@ pub fn x_indexed_absolute(cpu: &mut R6502, mem: &mut Memory, mode: am_select) ->
     match mode {
         am_select::A => addr.into(),
         am_select::V => cpu.fetch_byte_with_address(mem, addr).into(),
-        am_select::R => unreachable!(),
     }
 }
 
@@ -145,7 +140,6 @@ pub fn y_indexed_absolute(cpu: &mut R6502, mem: &mut Memory, mode: am_select) ->
     match mode {
         am_select::A => addr.into(),
         am_select::V => cpu.fetch_byte_with_address(mem, addr).into(),
-        am_select::R => unreachable!(),
     }
 }
 
@@ -165,7 +159,6 @@ pub fn zero_page(cpu: &mut R6502, mem: &mut Memory, mode: am_select) -> AMValue 
     match mode {
         am_select::A => op.into(),
         am_select::V => cpu.fetch_byte_with_address(mem, op).into(),
-        am_select::R => unreachable!(),
     }
 }
 
@@ -175,7 +168,6 @@ pub fn x_indexed_zero_page(cpu: &mut R6502, mem: &mut Memory, mode: am_select) -
     match mode {
         am_select::A => addr.into(),
         am_select::V => cpu.fetch_byte_with_address(mem, addr).into(),
-        am_select::R => unreachable!(),
     }
 }
 
@@ -185,7 +177,6 @@ pub fn y_indexed_zero_page(cpu: &mut R6502, mem: &mut Memory, mode: am_select) -
     match mode {
         am_select::A => addr.into(),
         am_select::V => cpu.fetch_byte_with_address(mem, addr).into(),
-        am_select::R => unreachable!(),
     }
 }
 
@@ -197,7 +188,6 @@ pub fn x_indexed_zero_page_indirect(cpu: &mut R6502, mem: &mut Memory, mode: am_
     match mode {
         am_select::A => next.into(),
         am_select::V => cpu.fetch_byte_with_address(mem, next).into(),
-        am_select::R => unreachable!(),
     }
 }
 
@@ -210,7 +200,6 @@ pub fn zero_page_indirect_y_indexed(cpu: &mut R6502, mem: &mut Memory, mode: am_
     match mode {
         am_select::A => next.into(),
         am_select::V => cpu.fetch_byte_with_address(mem, next).into(),
-        am_select::R => unreachable!(),
     }
 }
 
