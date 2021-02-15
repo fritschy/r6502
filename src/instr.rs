@@ -1,153 +1,433 @@
-pub const BRK: u8 = 0x00;
-pub const ORA_XIZI: u8 = 0x01;
-pub const ORA_ZP: u8 = 0x05;
-pub const ASL_ZP: u8 = 0x06;
-pub const PHP: u8 = 0x08;
-pub const ORA_IM: u8 = 0x09;
-pub const ASLA: u8 = 0x0A;
-pub const ORA_ABS: u8 = 0x0D;
-pub const ASL_ABS: u8 = 0x0E;
-pub const BPL_REL: u8 = 0x10;
-pub const ORA_ZIYI: u8 = 0x11;
-pub const ORA_XIZ: u8 = 0x15;
-pub const ASL_XIZ: u8 = 0x16;
-pub const CLC: u8 = 0x18;
-pub const ORA_YIA: u8 = 0x19;
-pub const ORA_XIA: u8 = 0x1D;
-pub const ASL_XIA: u8 = 0x1E;
-pub const JSR_ABS: u8 = 0x20;
-pub const AND_XIZI: u8 = 0x21;
-pub const BIT_ZP: u8 = 0x24;
-pub const AND_ZP: u8 = 0x25;
-pub const ROL_ZP: u8 = 0x26;
-pub const PLP: u8 = 0x28;
-pub const AND_IM: u8 = 0x29;
-pub const ROLA: u8 = 0x2A;
-pub const BIT_ABS: u8 = 0x2C;
-pub const AND_ABS: u8 = 0x2D;
-pub const ROL_ABS: u8 = 0x2E;
-pub const BMI_REL: u8 = 0x30;
-pub const AND_ZIYI: u8 = 0x31;
-pub const AND_XIZ: u8 = 0x35;
-pub const ROL_XIZ: u8 = 0x36;
-pub const SEC: u8 = 0x38;
-pub const AND_YIA: u8 = 0x39;
-pub const AND_XIA: u8 = 0x3D;
-pub const ROL_XIA: u8 = 0x3E;
-pub const RTI: u8 = 0x40;
-pub const EOR_XIZI: u8 = 0x41;
-pub const EOR_ZP: u8 = 0x45;
-pub const LSR_ZP: u8 = 0x46;
-pub const PHA: u8 = 0x48;
-pub const EOR_IM: u8 = 0x49;
-pub const LSRA: u8 = 0x4A;
-pub const JMP_ABS: u8 = 0x4C;
-pub const EOR_ABS: u8 = 0x4D;
-pub const LSR_ABS: u8 = 0x4E;
-pub const BVC_REL: u8 = 0x50;
-pub const EOR_ZIYI: u8 = 0x51;
-pub const EOR_XIZ: u8 = 0x55;
-pub const LSR_XIZ: u8 = 0x56;
-pub const CLI: u8 = 0x58;
-pub const EOR_YIA: u8 = 0x59;
-pub const EOR_XIA: u8 = 0x5D;
-pub const LSR_XIA: u8 = 0x5E;
-pub const RTS: u8 = 0x60;
-pub const ADC_XIZI: u8 = 0x61;
-pub const ADC_ZP: u8 = 0x65;
-pub const ROR_ZP: u8 = 0x66;
-pub const PLA: u8 = 0x68;
-pub const ADC_IM: u8 = 0x69;
-pub const RORA: u8 = 0x6A;
-pub const JMP_ABSI: u8 = 0x6C;
-pub const ADC_ABS: u8 = 0x6D;
-pub const ROR_ABS: u8 = 0x6E;
-pub const BVS_REL: u8 = 0x70;
-pub const ADC_ZIYI: u8 = 0x71;
-pub const ADC_XIZ: u8 = 0x75;
-pub const ROR_XIZ: u8 = 0x76;
-pub const SEI: u8 = 0x78;
-pub const ADC_YIA: u8 = 0x79;
-pub const ADC_XIA: u8 = 0x7D;
-pub const ROR_XIA: u8 = 0x7E;
-pub const STA_XIZI: u8 = 0x81;
-pub const STY_ZP: u8 = 0x84;
-pub const STA_ZP: u8 = 0x85;
-pub const STX_ZP: u8 = 0x86;
-pub const DEY: u8 = 0x88;
-pub const TXA: u8 = 0x8A;
-pub const STY_ABS: u8 = 0x8C;
-pub const STA_ABS: u8 = 0x8D;
-pub const STX_ABS: u8 = 0x8E;
-pub const BCC_REL: u8 = 0x90;
-pub const STA_ZIYI: u8 = 0x91;
-pub const STY_XIZ: u8 = 0x94;
-pub const STA_XIZ: u8 = 0x95;
-pub const STX_YIZ: u8 = 0x96;
-pub const TYA: u8 = 0x98;
-pub const STA_YIA: u8 = 0x99;
-pub const TXS: u8 = 0x9A;
-pub const STA_XIA: u8 = 0x9D;
-pub const LDY_IM: u8 = 0xA0;
-pub const LDA_XIZI: u8 = 0xA1;
-pub const LDX_IM: u8 = 0xA2;
-pub const LDY_ZP: u8 = 0xA4;
-pub const LDA_ZP: u8 = 0xA5;
-pub const LDX_ZP: u8 = 0xA6;
-pub const TAY: u8 = 0xA8;
-pub const LDA_IM: u8 = 0xA9;
-pub const TAX: u8 = 0xAA;
-pub const LDY_ABS: u8 = 0xAC;
-pub const LDA_ABS: u8 = 0xAD;
-pub const LDX_ABS: u8 = 0xAE;
-pub const BCS_REL: u8 = 0xB0;
-pub const LDA_ZIYI: u8 = 0xB1;
-pub const LDY_XIZ: u8 = 0xB4;
-pub const LDA_XIZ: u8 = 0xB5;
-pub const LDX_YIZ: u8 = 0xB6;
-pub const CLV: u8 = 0xB8;
-pub const LDA_YIA: u8 = 0xB9;
-pub const TSX: u8 = 0xBA;
-pub const LDY_XIA: u8 = 0xBC;
-pub const LDA_XIA: u8 = 0xBD;
-pub const LDX_YIA: u8 = 0xBE;
-pub const CPY_IM: u8 = 0xC0;
-pub const CMP_XIZI: u8 = 0xC1;
-pub const CPY_ZP: u8 = 0xC4;
-pub const CMP_ZP: u8 = 0xC5;
-pub const DEC_ZP: u8 = 0xC6;
-pub const INY: u8 = 0xC8;
-pub const CMP_IM: u8 = 0xC9;
-pub const DEX: u8 = 0xCA;
-pub const CPY_ABS: u8 = 0xCC;
-pub const CMP_ABS: u8 = 0xCD;
-pub const DEC_ABS: u8 = 0xCE;
-pub const BNE_REL: u8 = 0xD0;
-pub const CMP_ZIYI: u8 = 0xD1;
-pub const CMP_XIZ: u8 = 0xD5;
-pub const DEC_XIZ: u8 = 0xD6;
-pub const CLD: u8 = 0xD8;
-pub const CMP_YIA: u8 = 0xD9;
-pub const CMP_XIA: u8 = 0xDD;
-pub const DEC_XIA: u8 = 0xDE;
-pub const CPX_IM: u8 = 0xE0;
-pub const SBC_XIZI: u8 = 0xE1;
-pub const CPX_ZP: u8 = 0xE4;
-pub const SBC_ZP: u8 = 0xE5;
-pub const INC_ZP: u8 = 0xE6;
-pub const INX: u8 = 0xE8;
-pub const SBC_IM: u8 = 0xE9;
-pub const NOP: u8 = 0xEA;
-pub const CPX_ABS: u8 = 0xEC;
-pub const SBC_ABS: u8 = 0xED;
-pub const INC_ABS: u8 = 0xEE;
-pub const BEQ_REL: u8 = 0xF0;
-pub const SBC_ZIYI: u8 = 0xF1;
-pub const SBC_XIZ: u8 = 0xF5;
-pub const INC_XIZ: u8 = 0xF6;
-pub const SED: u8 = 0xF8;
-pub const SBC_YIA: u8 = 0xF9;
-pub const SBC_XIA: u8 = 0xFD;
-pub const INC_XIA: u8 = 0xFE;
+use crate::{
+    Memory,
+    R6502,
+    status_flag,
+};
 
+use crate::adressing_mode::{
+    AMValue,
+    AMSelect,
+};
 
+use std::ops::{BitAnd, BitXor, BitOr};
+
+pub fn instr_lda(cpu: &mut R6502, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    cpu.a = addr_mode(cpu, mem, AMSelect::V).to_value();
+    cpu.set_flag(status_flag::N, cpu.a & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.a == 0);
+}
+
+pub fn instr_ldx(cpu: &mut R6502, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    cpu.x = addr_mode(cpu, mem, AMSelect::V).to_value();
+    cpu.set_flag(status_flag::N, cpu.x & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.x == 0);
+}
+
+pub fn instr_ldy(cpu: &mut R6502, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    cpu.y = addr_mode(cpu, mem, AMSelect::V).to_value();
+    cpu.set_flag(status_flag::N, cpu.y & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.y == 0);
+}
+
+pub fn instr_sta(cpu: &mut R6502, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    let addr = addr_mode(cpu, mem, AMSelect::A).to_addr();
+    cpu.write_byte_to_address(mem, addr, cpu.a);
+}
+
+pub fn instr_stx(cpu: &mut R6502, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    let addr = addr_mode(cpu, mem, AMSelect::A).to_addr();
+    cpu.write_byte_to_address(mem, addr, cpu.x);
+}
+
+pub fn instr_sty(cpu: &mut R6502, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    let addr = addr_mode(cpu, mem, AMSelect::A).to_addr();
+    cpu.write_byte_to_address(mem, addr, cpu.y);
+}
+
+pub fn instr_tax(cpu: &mut R6502, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    cpu.x = cpu.a;
+    cpu.set_flag(status_flag::N, cpu.x & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.x == 0);
+}
+
+pub fn instr_tay(cpu: &mut R6502, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    cpu.y = cpu.a;
+    cpu.set_flag(status_flag::N, cpu.y & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.y == 0);
+}
+
+pub fn instr_tsx(cpu: &mut R6502, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    cpu.x = cpu.sp;
+    cpu.set_flag(status_flag::N, cpu.x & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.x == 0);
+}
+
+pub fn instr_txa(cpu: &mut R6502, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    cpu.a = cpu.x;
+    cpu.set_flag(status_flag::N, cpu.a & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.a == 0);
+}
+
+pub fn instr_txs(cpu: &mut R6502, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    cpu.sp = cpu.x;
+    cpu.set_flag(status_flag::N, cpu.sp & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.sp == 0);
+}
+
+pub fn instr_tya(cpu: &mut R6502, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    cpu.a = cpu.y;
+    cpu.set_flag(status_flag::N, cpu.a & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.a == 0);
+}
+
+pub fn instr_pha(cpu: &mut R6502, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    cpu.push(mem, cpu.a);
+}
+
+pub fn instr_php(cpu: &mut R6502, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    cpu.push(mem, cpu.sr);
+}
+
+pub fn instr_pla(cpu: &mut R6502, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    cpu.a = cpu.pop(mem);
+    cpu.set_flag(status_flag::N, cpu.a & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.a == 0);
+}
+
+pub fn instr_plp(cpu: &mut R6502, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    cpu.sr = cpu.pop(mem);
+}
+
+pub fn instr_asl(cpu: &mut R6502, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    let m = addr_mode(cpu, mem, AMSelect::A);
+    let (o, m) = match m {
+        AMValue::Accumulator => {
+            let a = cpu.a;
+            let b = a << 1;
+            cpu.a = b;
+            (a, b)
+        }
+        AMValue::Address(addr) => {
+            let a = cpu.fetch_byte_with_address(mem, addr);
+            let b = a << 1;
+            cpu.write_byte_to_address(mem, addr, b);
+            (a, b)
+        }
+        _ => unreachable!(),
+    };
+    cpu.set_flag(status_flag::C, o & 0x80 != 0);
+    cpu.set_flag(status_flag::N, m & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, m == 0);
+}
+
+pub fn instr_lsr(cpu: &mut R6502, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    let m = addr_mode(cpu, mem, AMSelect::A);
+    let (o, m) = match m {
+        AMValue::Accumulator => {
+            let a = cpu.a;
+            let b = a >> 1;
+            cpu.a = b;
+            (a, b)
+        }
+        AMValue::Address(addr) => {
+            let a = cpu.fetch_byte_with_address(mem, addr);
+            let b = a >> 1;
+            cpu.write_byte_to_address(mem, addr, b);
+            (a, b)
+        }
+        _ => unreachable!(),
+    };
+    cpu.set_flag(status_flag::C, o & 0x1 != 0);
+    cpu.set_flag(status_flag::N, m & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, m == 0);
+}
+
+pub fn instr_rol(cpu: &mut R6502, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    let m = addr_mode(cpu, mem, AMSelect::A);
+    let (o, m) = match m {
+        AMValue::Accumulator => {
+            let a = cpu.a;
+            let b = a.rotate_left(1);
+            cpu.a = b;
+            (a, b)
+        }
+        AMValue::Address(addr) => {
+            let a = cpu.fetch_byte_with_address(mem, addr);
+            let b = a.rotate_left(1);
+            cpu.write_byte_to_address(mem, addr, b);
+            (a, b)
+        }
+        _ => unreachable!(),
+    };
+    cpu.set_flag(status_flag::C, o & 0x80 != 0);
+    cpu.set_flag(status_flag::N, m & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, m == 0);
+}
+
+pub fn instr_ror(cpu: &mut R6502, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    let m = addr_mode(cpu, mem, AMSelect::A);
+    let (o, m) = match m {
+        AMValue::Accumulator => {
+            let a = cpu.a;
+            let b = a.rotate_right(1);
+            cpu.a = b;
+            (a, b)
+        }
+        AMValue::Address(addr) => {
+            let a = cpu.fetch_byte_with_address(mem, addr);
+            let b = a.rotate_right(1);
+            cpu.write_byte_to_address(mem, addr, b);
+            (a, b)
+        }
+        _ => unreachable!(),
+    };
+    cpu.set_flag(status_flag::C, o & 0x1 != 0);
+    cpu.set_flag(status_flag::N, m & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, m == 0);
+}
+
+pub fn instr_and(cpu: &mut R6502, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    let m = addr_mode(cpu, mem, AMSelect::V).to_value();
+    cpu.a = cpu.a.bitand(m);
+    cpu.set_flag(status_flag::N, cpu.a & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.a == 0);
+}
+
+pub fn instr_bit(cpu: &mut R6502, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    let m = addr_mode(cpu, mem, AMSelect::V).to_value();
+    let a = cpu.a.bitand(m);
+    cpu.set_flag(status_flag::N, m & 0x80 != 0);
+    cpu.set_flag(status_flag::V, m & 0x40 != 0);
+    cpu.set_flag(status_flag::Z, a == 0);
+}
+
+pub fn instr_eor(cpu: &mut R6502, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    let m = addr_mode(cpu, mem, AMSelect::V).to_value();
+    cpu.a = cpu.a.bitxor(m);
+    cpu.set_flag(status_flag::N, cpu.a & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.a == 0);
+}
+
+pub fn instr_ora(cpu: &mut R6502, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    let m = addr_mode(cpu, mem, AMSelect::V).to_value();
+    cpu.a = cpu.a.bitor(m);
+    cpu.set_flag(status_flag::N, cpu.a & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.a == 0);
+}
+
+pub fn instr_adc(cpu: &mut R6502, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    let m = addr_mode(cpu, mem, AMSelect::V).to_value();
+    let c = cpu.sr & 0x1;
+    if cpu.sr & status_flag::D == 0 {
+        let a = cpu.a as u16 + m as u16 + c as u16;
+        let oa = cpu.a;
+        cpu.a = a as u8;
+        cpu.set_flag(status_flag::N, cpu.a & 0x80 != 0);
+        cpu.set_flag(status_flag::Z, cpu.a == 0);
+        cpu.set_flag(status_flag::C, a & 0x100 != 0);
+        cpu.set_flag(status_flag::V, oa & 0x80 != (a as u8) & 0x80);
+    } else {
+        unimplemented!("Decimal mode is unimplemented!");
+    }
+}
+
+pub fn instr_cmp(cpu: &mut R6502, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    let m = addr_mode(cpu, mem, AMSelect::V).to_value();
+    let a = cpu.a as i16 - m as i16;
+    cpu.set_flag(status_flag::N, a & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, a == 0);
+    cpu.set_flag(status_flag::C, a >= 0);
+}
+
+pub fn instr_cpx(cpu: &mut R6502, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    let m = addr_mode(cpu, mem, AMSelect::V).to_value();
+    let a = cpu.x as i16 - m as i16;
+    cpu.set_flag(status_flag::N, a & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, a == 0);
+    cpu.set_flag(status_flag::C, a >= 0);
+}
+
+pub fn instr_cpy(cpu: &mut R6502, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    let m = addr_mode(cpu, mem, AMSelect::V).to_value();
+    let a = cpu.y as i16 - m as i16;
+    cpu.set_flag(status_flag::N, a & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, a == 0);
+    cpu.set_flag(status_flag::C, a >= 0);
+}
+
+pub fn instr_sbc(cpu: &mut R6502, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    let m = addr_mode(cpu, mem, AMSelect::V).to_value();
+    let c = cpu.sr & 0x1;
+    let c = if c == 1 { 0 } else { 1 };
+    if cpu.sr & status_flag::D == 0 {
+        let a = cpu.a as i16 - m as i16 - c as i16;
+        cpu.a = a as u8;
+        cpu.set_flag(status_flag::N, cpu.a & 0x80 != 0);
+        cpu.set_flag(status_flag::Z, cpu.a == 0);
+        cpu.set_flag(status_flag::C, a >= 0);
+        cpu.set_flag(status_flag::V, a < -127 || a > 127);
+    } else {
+        unimplemented!("Decimal mode is unimplemented!");
+    }
+}
+
+pub fn instr_dec(cpu: &mut R6502, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    let addr = addr_mode(cpu, mem, AMSelect::A).to_addr();
+    let m = cpu.fetch_byte_with_address(mem, addr).wrapping_sub(1);
+    cpu.write_byte_to_address(mem, addr, m);
+    cpu.set_flag(status_flag::N, m & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, m == 0);
+}
+
+pub fn instr_dex(cpu: &mut R6502, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    cpu.x = cpu.x.wrapping_sub(1);
+    cpu.set_flag(status_flag::N, cpu.x & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.x == 0);
+}
+
+pub fn instr_dey(cpu: &mut R6502, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    cpu.y = cpu.y.wrapping_sub(1);
+    cpu.set_flag(status_flag::N, cpu.y & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.y == 0);
+}
+
+pub fn instr_inc(cpu: &mut R6502, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    let addr = addr_mode(cpu, mem, AMSelect::A).to_addr();
+    let m = cpu.fetch_byte_with_address(mem, addr).wrapping_add(1);
+    cpu.write_byte_to_address(mem, addr, m);
+    cpu.set_flag(status_flag::N, m & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, m == 0);
+}
+
+pub fn instr_inx(cpu: &mut R6502, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    cpu.x = cpu.x.wrapping_add(1);
+    cpu.set_flag(status_flag::N, cpu.x & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.x == 0);
+}
+
+pub fn instr_iny(cpu: &mut R6502, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    cpu.y = cpu.y.wrapping_add(1);
+    cpu.set_flag(status_flag::N, cpu.y & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.y == 0);
+}
+
+pub fn instr_jmp(cpu: &mut R6502, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    cpu.pc = addr_mode(cpu, mem, AMSelect::A).to_addr();
+}
+
+pub fn instr_brk(cpu: &mut R6502, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    let sr = cpu.sr;
+    let pc = cpu.pc + 2;
+    cpu.push(mem, (pc >> 8) as u8);
+    cpu.push(mem, (pc & 0xff) as u8);
+    cpu.push(mem, sr);
+    cpu.set_flag(status_flag::I, true);
+    cpu.pc = 0xfffe;
+    cpu.count += 7;
+}
+
+pub fn instr_rti(cpu: &mut R6502, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    let sr = cpu.pop(mem);
+    let pcl = cpu.pop(mem);
+    let pch = cpu.pop(mem);
+    let pc = pcl as u16 | (pch as u16) << 8;
+    cpu.sr = sr & !status_flag::B;
+    cpu.pc = pc;
+    cpu.count += 6;
+}
+
+pub fn instr_jsr(cpu: &mut R6502, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    let pc = cpu.pc + 2;
+    cpu.push(mem, (pc >> 8) as u8);
+    cpu.push(mem, (pc & 0xff) as u8);
+    let addr = addr_mode(cpu, mem, AMSelect::A).to_addr();
+    cpu.pc = addr;
+    cpu.count += 6;
+}
+
+pub fn instr_rts(cpu: &mut R6502, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    let pcl = cpu.pop(mem);
+    let pch = cpu.pop(mem);
+    let pc = pcl as u16 | (pch as u16) << 8;
+    cpu.pc = pc;
+    cpu.count += 6;
+}
+
+pub fn instr_bcc(cpu: &mut R6502, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    if cpu.sr & status_flag::C == 0 {
+        cpu.pc = addr_mode(cpu, mem, AMSelect::A).to_addr();
+    }
+}
+
+pub fn instr_bcs(cpu: &mut R6502, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    if cpu.sr & status_flag::C != 0 {
+        cpu.pc = addr_mode(cpu, mem, AMSelect::A).to_addr();
+    }
+}
+
+pub fn instr_beq(cpu: &mut R6502, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    if cpu.sr & status_flag::Z != 0 {
+        cpu.pc = addr_mode(cpu, mem, AMSelect::A).to_addr();
+    }
+}
+
+pub fn instr_bmi(cpu: &mut R6502, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    if cpu.sr & status_flag::N != 0 {
+        cpu.pc = addr_mode(cpu, mem, AMSelect::A).to_addr();
+    }
+}
+
+pub fn instr_bne(cpu: &mut R6502, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    if cpu.sr & status_flag::Z == 0 {
+        cpu.pc = addr_mode(cpu, mem, AMSelect::A).to_addr();
+    }
+}
+
+pub fn instr_bpl(cpu: &mut R6502, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    if cpu.sr & status_flag::N == 0 {
+        cpu.pc = addr_mode(cpu, mem, AMSelect::A).to_addr();
+    }
+}
+
+pub fn instr_bvc(cpu: &mut R6502, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    if cpu.sr & status_flag::V == 0 {
+        cpu.pc = addr_mode(cpu, mem, AMSelect::A).to_addr();
+    }
+}
+
+pub fn instr_bvs(cpu: &mut R6502, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    if cpu.sr & status_flag::V != 0 {
+        cpu.pc = addr_mode(cpu, mem, AMSelect::A).to_addr();
+    }
+}
+
+pub fn instr_clc(cpu: &mut R6502, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    cpu.sr &= !status_flag::C;
+}
+
+pub fn instr_cld(cpu: &mut R6502, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    cpu.sr &= !status_flag::D;
+}
+
+pub fn instr_cli(cpu: &mut R6502, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    cpu.sr &= !status_flag::I;
+}
+
+pub fn instr_clv(cpu: &mut R6502, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    cpu.sr &= !status_flag::V;
+}
+
+pub fn instr_sec(cpu: &mut R6502, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    cpu.sr |= status_flag::C;
+}
+
+pub fn instr_sed(cpu: &mut R6502, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    cpu.sr |= status_flag::D;
+}
+
+pub fn instr_sei(cpu: &mut R6502, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+    cpu.sr |= status_flag::I;
+}
+
+pub fn instr_nop(_cpu: &mut R6502, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+}

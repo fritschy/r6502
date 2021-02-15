@@ -1,12 +1,12 @@
-// Based on the documentation at http://www.obelisk.me.uk/6502/
-
-use std::ops::{Index, IndexMut, BitAnd, BitXor, BitOr};
+use std::ops::{Index, IndexMut};
 use stopwatch::Stopwatch;
 
 type Byte = u8;
 type Word = u16;
 
 mod instr;
+mod opcode;
+mod adressing_mode;
 
 trait Reset {
     fn reset(&mut self);
@@ -47,167 +47,8 @@ impl Reset for R6502 {
     }
 }
 
-pub enum AMValue {
-    Address(u16),
-    Value(u8),
-    Accumulator,
-    None,
-}
-
-impl AMValue {
-    fn to_addr(self) -> u16 {
-        match self {
-            AMValue::Address(a) => a,
-            _ => panic!("Cannot get address of a Value"),
-        }
-    }
-
-    fn to_value(self) -> u8 {
-        match self {
-            AMValue::Value(a) => a,
-            _ => panic!("Cannot get value of an Address"),
-        }
-    }
-}
-
 fn page(addr: u16) -> u8 {
     (addr >> 8) as u8
-}
-
-impl From<u8> for AMValue {
-    fn from(v: u8) -> Self {
-        AMValue::Value(v)
-    }
-}
-
-impl From<u16> for AMValue {
-    fn from(v: u16) -> Self {
-        AMValue::Address(v)
-    }
-}
-
-#[derive(Eq, PartialEq, Copy, Clone)]
-pub enum AMSelect {
-    A,
-    V,
-}
-
-pub fn implied(_cpu: &mut R6502, _mem: &mut Memory, _mode: AMSelect) -> AMValue {
-    unreachable!("implied addressing mode should NEVER try to resolve its operand");
-}
-
-pub fn immediate(cpu: &mut R6502, mem: &mut Memory, mode: AMSelect) -> AMValue {
-    match mode {
-        AMSelect::A => cpu.pc.into(),
-        AMSelect::V => cpu.fetch_byte_with_pc(mem).into(),
-    }
-}
-
-pub fn accumulator(cpu: &mut R6502, _mem: &mut Memory, mode: AMSelect) -> AMValue {
-    match mode {
-        AMSelect::V => cpu.a.into(),
-        AMSelect::A => AMValue::Accumulator,
-    }
-}
-
-pub fn absolute(cpu: &mut R6502, mem: &mut Memory, mode: AMSelect) -> AMValue {
-    let addr = cpu.fetch_byte_with_pc(mem) as u16;
-    let addr = addr | (cpu.fetch_byte_with_pc(mem) as u16) << 8;
-    match mode {
-        AMSelect::A => addr.into(),
-        AMSelect::V => cpu.fetch_byte_with_address(mem, addr).into(),
-    }
-}
-
-pub fn x_indexed_absolute(cpu: &mut R6502, mem: &mut Memory, mode: AMSelect) -> AMValue {
-    let addr = absolute(cpu, mem, AMSelect::A).to_addr();
-    let addr = addr.wrapping_add(cpu.x as u16);
-    match mode {
-        AMSelect::A => addr.into(),
-        AMSelect::V => cpu.fetch_byte_with_address(mem, addr).into(),
-    }
-}
-
-pub fn y_indexed_absolute(cpu: &mut R6502, mem: &mut Memory, mode: AMSelect) -> AMValue {
-    let addr = absolute(cpu, mem, AMSelect::A).to_addr();
-    let addr = addr.wrapping_add(cpu.y as u16);
-    match mode {
-        AMSelect::A => addr.into(),
-        AMSelect::V => cpu.fetch_byte_with_address(mem, addr).into(),
-    }
-}
-
-// This is only ever possible with JMP, hence we just set the PC
-pub fn absolute_indirect(cpu: &mut R6502, mem: &mut Memory, mode: AMSelect) -> AMValue {
-    let addr = absolute(cpu, mem, AMSelect::A).to_addr();
-    let next = cpu.fetch_byte_with_address(mem, addr) as u16;
-    let next = next | (cpu.fetch_byte_with_address(mem, addr.wrapping_add(1)) as u16) << 8;
-    match mode {
-        AMSelect::A => next.into(),
-        _ => unreachable!(),
-    }
-}
-
-pub fn zero_page(cpu: &mut R6502, mem: &mut Memory, mode: AMSelect) -> AMValue {
-    let op = cpu.fetch_byte_with_pc(mem) as u16;
-    match mode {
-        AMSelect::A => op.into(),
-        AMSelect::V => cpu.fetch_byte_with_address(mem, op).into(),
-    }
-}
-
-pub fn x_indexed_zero_page(cpu: &mut R6502, mem: &mut Memory, mode: AMSelect) -> AMValue {
-    let op = cpu.fetch_byte_with_pc(mem);
-    let addr = cpu.x.wrapping_add(op) as u16;
-    match mode {
-        AMSelect::A => addr.into(),
-        AMSelect::V => cpu.fetch_byte_with_address(mem, addr).into(),
-    }
-}
-
-pub fn y_indexed_zero_page(cpu: &mut R6502, mem: &mut Memory, mode: AMSelect) -> AMValue {
-    let op = cpu.fetch_byte_with_pc(mem);
-    let addr = cpu.y.wrapping_add(op) as u16;
-    match mode {
-        AMSelect::A => addr.into(),
-        AMSelect::V => cpu.fetch_byte_with_address(mem, addr).into(),
-    }
-}
-
-pub fn x_indexed_zero_page_indirect(cpu: &mut R6502, mem: &mut Memory, mode: AMSelect) -> AMValue {
-    let op = cpu.fetch_byte_with_pc(mem);
-    let addr = cpu.x.wrapping_add(op) as u16;
-    let next = cpu.fetch_byte_with_address(mem, addr) as u16;
-    let next = next | (cpu.fetch_byte_with_address(mem, addr.wrapping_add(1)) as u16) << 8;
-    match mode {
-        AMSelect::A => next.into(),
-        AMSelect::V => cpu.fetch_byte_with_address(mem, next).into(),
-    }
-}
-
-pub fn zero_page_indirect_y_indexed(cpu: &mut R6502, mem: &mut Memory, mode: AMSelect) -> AMValue {
-    let op = cpu.fetch_byte_with_pc(mem);
-    let addr = op as u16;
-    let next = cpu.fetch_byte_with_address(mem, addr) as u16;
-    let next = next | (cpu.fetch_byte_with_address(mem, addr.wrapping_add(1)) as u16) << 8;
-    let next = next.wrapping_add(cpu.y as u16);
-    match mode {
-        AMSelect::A => next.into(),
-        AMSelect::V => cpu.fetch_byte_with_address(mem, next).into(),
-    }
-}
-
-// XXX: this is only ever used by JMP
-pub fn relative(cpu: &mut R6502, mem: &mut Memory, mode: AMSelect) -> AMValue {
-    let op = cpu.fetch_byte_with_pc(mem);
-    let op = op as i8;
-    // XXX I am not happy with this wild around sign/unsign casting
-    let pc = cpu.pc as i32;
-    let pc = pc + op as i32;
-    match mode {
-        AMSelect::A => AMValue::from(pc as u16),
-        _ => unreachable!(),
-    }
 }
 
 impl R6502 {
@@ -262,611 +103,192 @@ impl R6502 {
         }
     }
 
-    fn instr_lda(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        self.a = addr_mode(self, mem, AMSelect::V).to_value();
-        self.set_flag(status_flag::N, self.a & 0x80 != 0);
-        self.set_flag(status_flag::Z, self.a == 0);
-    }
-
-    fn instr_ldx(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        self.x = addr_mode(self, mem, AMSelect::V).to_value();
-        self.set_flag(status_flag::N, self.x & 0x80 != 0);
-        self.set_flag(status_flag::Z, self.x == 0);
-    }
-
-    fn instr_ldy(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        self.y = addr_mode(self, mem, AMSelect::V).to_value();
-        self.set_flag(status_flag::N, self.y & 0x80 != 0);
-        self.set_flag(status_flag::Z, self.y == 0);
-    }
-
-    fn instr_sta(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        let addr = addr_mode(self, mem, AMSelect::A).to_addr();
-        self.write_byte_to_address(mem, addr, self.a);
-    }
-
-    fn instr_stx(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        let addr = addr_mode(self, mem, AMSelect::A).to_addr();
-        self.write_byte_to_address(mem, addr, self.x);
-    }
-
-    fn instr_sty(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        let addr = addr_mode(self, mem, AMSelect::A).to_addr();
-        self.write_byte_to_address(mem, addr, self.y);
-    }
-
-    fn instr_tax(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        self.x = self.a;
-        self.set_flag(status_flag::N, self.x & 0x80 != 0);
-        self.set_flag(status_flag::Z, self.x == 0);
-    }
-
-    fn instr_tay(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        self.y = self.a;
-        self.set_flag(status_flag::N, self.y & 0x80 != 0);
-        self.set_flag(status_flag::Z, self.y == 0);
-    }
-
-    fn instr_tsx(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        self.x = self.sp;
-        self.set_flag(status_flag::N, self.x & 0x80 != 0);
-        self.set_flag(status_flag::Z, self.x == 0);
-    }
-
-    fn instr_txa(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        self.a = self.x;
-        self.set_flag(status_flag::N, self.a & 0x80 != 0);
-        self.set_flag(status_flag::Z, self.a == 0);
-    }
-
-    fn instr_txs(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        self.sp = self.x;
-        self.set_flag(status_flag::N, self.sp & 0x80 != 0);
-        self.set_flag(status_flag::Z, self.sp == 0);
-    }
-
-    fn instr_tya(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        self.a = self.y;
-        self.set_flag(status_flag::N, self.a & 0x80 != 0);
-        self.set_flag(status_flag::Z, self.a == 0);
-    }
-
-    fn instr_pha(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        self.push(mem, self.a);
-    }
-
-    fn instr_php(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        self.push(mem, self.sr);
-    }
-
-    fn instr_pla(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        self.a = self.pop(mem);
-        self.set_flag(status_flag::N, self.a & 0x80 != 0);
-        self.set_flag(status_flag::Z, self.a == 0);
-    }
-
-    fn instr_plp(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        self.sr = self.pop(mem);
-    }
-
-    fn instr_asl(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        let m = addr_mode(self, mem, AMSelect::A);
-        let (o, m) = match m {
-            AMValue::Accumulator => {
-                let a = self.a;
-                let b = a << 1;
-                self.a = b;
-                (a, b)
-            }
-            AMValue::Address(addr) => {
-                let a = self.fetch_byte_with_address(mem, addr);
-                let b = a << 1;
-                self.write_byte_to_address(mem, addr, b);
-                (a, b)
-            }
-            _ => unreachable!(),
-        };
-        self.set_flag(status_flag::C, o & 0x80 != 0);
-        self.set_flag(status_flag::N, m & 0x80 != 0);
-        self.set_flag(status_flag::Z, m == 0);
-    }
-
-    fn instr_lsr(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        let m = addr_mode(self, mem, AMSelect::A);
-        let (o, m) = match m {
-            AMValue::Accumulator => {
-                let a = self.a;
-                let b = a >> 1;
-                self.a = b;
-                (a, b)
-            }
-            AMValue::Address(addr) => {
-                let a = self.fetch_byte_with_address(mem, addr);
-                let b = a >> 1;
-                self.write_byte_to_address(mem, addr, b);
-                (a, b)
-            }
-            _ => unreachable!(),
-        };
-        self.set_flag(status_flag::C, o & 0x1 != 0);
-        self.set_flag(status_flag::N, m & 0x80 != 0);
-        self.set_flag(status_flag::Z, m == 0);
-    }
-
-    fn instr_rol(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        let m = addr_mode(self, mem, AMSelect::A);
-        let (o, m) = match m {
-            AMValue::Accumulator => {
-                let a = self.a;
-                let b = a.rotate_left(1);
-                self.a = b;
-                (a, b)
-            }
-            AMValue::Address(addr) => {
-                let a = self.fetch_byte_with_address(mem, addr);
-                let b = a.rotate_left(1);
-                self.write_byte_to_address(mem, addr, b);
-                (a, b)
-            }
-            _ => unreachable!(),
-        };
-        self.set_flag(status_flag::C, o & 0x80 != 0);
-        self.set_flag(status_flag::N, m & 0x80 != 0);
-        self.set_flag(status_flag::Z, m == 0);
-    }
-
-    fn instr_ror(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        let m = addr_mode(self, mem, AMSelect::A);
-        let (o, m) = match m {
-            AMValue::Accumulator => {
-                let a = self.a;
-                let b = a.rotate_right(1);
-                self.a = b;
-                (a, b)
-            }
-            AMValue::Address(addr) => {
-                let a = self.fetch_byte_with_address(mem, addr);
-                let b = a.rotate_right(1);
-                self.write_byte_to_address(mem, addr, b);
-                (a, b)
-            }
-            _ => unreachable!(),
-        };
-        self.set_flag(status_flag::C, o & 0x1 != 0);
-        self.set_flag(status_flag::N, m & 0x80 != 0);
-        self.set_flag(status_flag::Z, m == 0);
-    }
-
-    fn instr_and(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        let m = addr_mode(self, mem, AMSelect::V).to_value();
-        self.a = self.a.bitand(m);
-        self.set_flag(status_flag::N, self.a & 0x80 != 0);
-        self.set_flag(status_flag::Z, self.a == 0);
-    }
-
-    fn instr_bit(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        let m = addr_mode(self, mem, AMSelect::V).to_value();
-        let a = self.a.bitand(m);
-        self.set_flag(status_flag::N, m & 0x80 != 0);
-        self.set_flag(status_flag::V, m & 0x40 != 0);
-        self.set_flag(status_flag::Z, a == 0);
-    }
-
-    fn instr_eor(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        let m = addr_mode(self, mem, AMSelect::V).to_value();
-        self.a = self.a.bitxor(m);
-        self.set_flag(status_flag::N, self.a & 0x80 != 0);
-        self.set_flag(status_flag::Z, self.a == 0);
-    }
-
-    fn instr_ora(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        let m = addr_mode(self, mem, AMSelect::V).to_value();
-        self.a = self.a.bitor(m);
-        self.set_flag(status_flag::N, self.a & 0x80 != 0);
-        self.set_flag(status_flag::Z, self.a == 0);
-    }
-
-    fn instr_adc(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        let m = addr_mode(self, mem, AMSelect::V).to_value();
-        let c = self.sr & 0x1;
-        if self.sr & status_flag::D == 0 {
-            let a = self.a as u16 + m as u16 + c as u16;
-            let oa = self.a;
-            self.a = a as u8;
-            self.set_flag(status_flag::N, self.a & 0x80 != 0);
-            self.set_flag(status_flag::Z, self.a == 0);
-            self.set_flag(status_flag::C, a & 0x100 != 0);
-            self.set_flag(status_flag::V, oa & 0x80 != (a as u8) & 0x80);
-        } else {
-            unimplemented!("Decimal mode is unimplemented!");
-        }
-    }
-
-    fn instr_cmp(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        let m = addr_mode(self, mem, AMSelect::V).to_value();
-        let a = self.a as i16 - m as i16;
-        self.set_flag(status_flag::N, a & 0x80 != 0);
-        self.set_flag(status_flag::Z, a == 0);
-        self.set_flag(status_flag::C, a >= 0);
-    }
-
-    fn instr_cpx(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        let m = addr_mode(self, mem, AMSelect::V).to_value();
-        let a = self.x as i16 - m as i16;
-        self.set_flag(status_flag::N, a & 0x80 != 0);
-        self.set_flag(status_flag::Z, a == 0);
-        self.set_flag(status_flag::C, a >= 0);
-    }
-
-    fn instr_cpy(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        let m = addr_mode(self, mem, AMSelect::V).to_value();
-        let a = self.y as i16 - m as i16;
-        self.set_flag(status_flag::N, a & 0x80 != 0);
-        self.set_flag(status_flag::Z, a == 0);
-        self.set_flag(status_flag::C, a >= 0);
-    }
-
-    fn instr_sbc(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        let m = addr_mode(self, mem, AMSelect::V).to_value();
-        let c = self.sr & 0x1;
-        let c = if c == 1 { 0 } else { 1 };
-        if self.sr & status_flag::D == 0 {
-            let a = self.a as i16 - m as i16 - c as i16;
-            self.a = a as u8;
-            self.set_flag(status_flag::N, self.a & 0x80 != 0);
-            self.set_flag(status_flag::Z, self.a == 0);
-            self.set_flag(status_flag::C, a >= 0);
-            self.set_flag(status_flag::V, a < -127 || a > 127);
-        } else {
-            unimplemented!("Decimal mode is unimplemented!");
-        }
-    }
-
-    fn instr_dec(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        let addr = addr_mode(self, mem, AMSelect::A).to_addr();
-        let m = self.fetch_byte_with_address(mem, addr).wrapping_sub(1);
-        self.write_byte_to_address(mem, addr, m);
-        self.set_flag(status_flag::N, m & 0x80 != 0);
-        self.set_flag(status_flag::Z, m == 0);
-    }
-
-    fn instr_dex(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        self.x = self.x.wrapping_sub(1);
-        self.set_flag(status_flag::N, self.x & 0x80 != 0);
-        self.set_flag(status_flag::Z, self.x == 0);
-    }
-
-    fn instr_dey(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        self.y = self.y.wrapping_sub(1);
-        self.set_flag(status_flag::N, self.y & 0x80 != 0);
-        self.set_flag(status_flag::Z, self.y == 0);
-    }
-
-    fn instr_inc(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        let addr = addr_mode(self, mem, AMSelect::A).to_addr();
-        let m = self.fetch_byte_with_address(mem, addr).wrapping_add(1);
-        self.write_byte_to_address(mem, addr, m);
-        self.set_flag(status_flag::N, m & 0x80 != 0);
-        self.set_flag(status_flag::Z, m == 0);
-    }
-
-    fn instr_inx(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        self.x = self.x.wrapping_add(1);
-        self.set_flag(status_flag::N, self.x & 0x80 != 0);
-        self.set_flag(status_flag::Z, self.x == 0);
-    }
-
-    fn instr_iny(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        self.y = self.y.wrapping_add(1);
-        self.set_flag(status_flag::N, self.y & 0x80 != 0);
-        self.set_flag(status_flag::Z, self.y == 0);
-    }
-
-    fn instr_jmp(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        self.pc = addr_mode(self, mem, AMSelect::A).to_addr();
-    }
-
-    fn instr_brk(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        let sr = self.sr;
-        let pc = self.pc + 2;
-        self.push(mem, (pc >> 8) as u8);
-        self.push(mem, (pc & 0xff) as u8);
-        self.push(mem, sr);
-        self.set_flag(status_flag::I, true);
-        self.pc = 0xfffe;
-        self.count += 7;
-    }
-
-    fn instr_rti(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        let sr = self.pop(mem);
-        let pcl = self.pop(mem);
-        let pch = self.pop(mem);
-        let pc = pcl as u16 | (pch as u16) << 8;
-        self.sr = sr & !status_flag::B;
-        self.pc = pc;
-        self.count += 6;
-    }
-
-    fn instr_jsr(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        let pc = self.pc + 2;
-        self.push(mem, (pc >> 8) as u8);
-        self.push(mem, (pc & 0xff) as u8);
-        let addr = addr_mode(self, mem, AMSelect::A).to_addr();
-        self.pc = addr;
-        self.count += 6;
-    }
-
-    fn instr_rts(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        let pcl = self.pop(mem);
-        let pch = self.pop(mem);
-        let pc = pcl as u16 | (pch as u16) << 8;
-        self.pc = pc;
-        self.count += 6;
-    }
-
-    fn instr_bcc(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        if self.sr & status_flag::C == 0 {
-            self.pc = addr_mode(self, mem, AMSelect::A).to_addr();
-        }
-    }
-
-    fn instr_bcs(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        if self.sr & status_flag::C != 0 {
-            self.pc = addr_mode(self, mem, AMSelect::A).to_addr();
-        }
-    }
-
-    fn instr_beq(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        if self.sr & status_flag::Z != 0 {
-            self.pc = addr_mode(self, mem, AMSelect::A).to_addr();
-        }
-    }
-
-    fn instr_bmi(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        if self.sr & status_flag::N != 0 {
-            self.pc = addr_mode(self, mem, AMSelect::A).to_addr();
-        }
-    }
-
-    fn instr_bne(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        if self.sr & status_flag::Z == 0 {
-            self.pc = addr_mode(self, mem, AMSelect::A).to_addr();
-        }
-    }
-
-    fn instr_bpl(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        if self.sr & status_flag::N == 0 {
-            self.pc = addr_mode(self, mem, AMSelect::A).to_addr();
-        }
-    }
-
-    fn instr_bvc(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        if self.sr & status_flag::V == 0 {
-            self.pc = addr_mode(self, mem, AMSelect::A).to_addr();
-        }
-    }
-
-    fn instr_bvs(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        if self.sr & status_flag::V != 0 {
-            self.pc = addr_mode(self, mem, AMSelect::A).to_addr();
-        }
-    }
-
-    fn instr_clc(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        self.sr &= !status_flag::C;
-    }
-
-    fn instr_cld(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        self.sr &= !status_flag::D;
-    }
-
-    fn instr_cli(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        self.sr &= !status_flag::I;
-    }
-
-    fn instr_clv(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        self.sr &= !status_flag::V;
-    }
-
-    fn instr_sec(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        self.sr |= status_flag::C;
-    }
-
-    fn instr_sed(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        self.sr |= status_flag::D;
-    }
-
-    fn instr_sei(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-        self.sr |= status_flag::I;
-    }
-
-    fn instr_nop(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
-    }
-
     fn execute(&mut self, mem: &mut Memory, mut count: isize) {
         while count > 0 {
             count -= 1;
             let ins = self.fetch_byte_with_pc(mem);
 
+            use adressing_mode::*;
+
             match ins {
-                instr::LDA_IM => self.instr_lda(mem, immediate),
-                instr::LDA_ABS => self.instr_lda(mem, absolute),
-                instr::LDA_XIA => self.instr_lda(mem, x_indexed_absolute),
-                instr::LDA_YIA => self.instr_lda(mem, y_indexed_absolute),
-                instr::LDA_ZP => self.instr_lda(mem, zero_page),
-                instr::LDA_XIZ => self.instr_lda(mem, x_indexed_zero_page),
-                instr::LDA_XIZI => self.instr_lda(mem, x_indexed_zero_page_indirect),
-                instr::LDA_ZIYI => self.instr_lda(mem, zero_page_indirect_y_indexed),
+                opcode::LDA_IM => instr::instr_lda(self, mem, immediate),
+                opcode::LDA_ABS => instr::instr_lda(self, mem, absolute),
+                opcode::LDA_XIA => instr::instr_lda(self, mem, x_indexed_absolute),
+                opcode::LDA_YIA => instr::instr_lda(self, mem, y_indexed_absolute),
+                opcode::LDA_ZP => instr::instr_lda(self, mem, zero_page),
+                opcode::LDA_XIZ => instr::instr_lda(self, mem, x_indexed_zero_page),
+                opcode::LDA_XIZI => instr::instr_lda(self, mem, x_indexed_zero_page_indirect),
+                opcode::LDA_ZIYI => instr::instr_lda(self, mem, zero_page_indirect_y_indexed),
 
-                instr::LDX_IM => self.instr_ldx(mem, immediate),
-                instr::LDX_ABS => self.instr_ldx(mem, absolute),
-                instr::LDX_YIA => self.instr_ldx(mem, y_indexed_absolute),
-                instr::LDX_ZP => self.instr_ldx(mem, zero_page),
-                instr::LDX_YIZ => self.instr_ldx(mem, y_indexed_zero_page),
+                opcode::LDX_IM => instr::instr_ldx(self, mem, immediate),
+                opcode::LDX_ABS => instr::instr_ldx(self, mem, absolute),
+                opcode::LDX_YIA => instr::instr_ldx(self, mem, y_indexed_absolute),
+                opcode::LDX_ZP => instr::instr_ldx(self, mem, zero_page),
+                opcode::LDX_YIZ => instr::instr_ldx(self, mem, y_indexed_zero_page),
 
-                instr::LDY_IM => self.instr_ldy(mem, immediate),
-                instr::LDY_ABS => self.instr_ldy(mem, absolute),
-                instr::LDY_XIA => self.instr_ldy(mem, x_indexed_absolute),
-                instr::LDY_ZP => self.instr_ldy(mem, zero_page),
-                instr::LDY_XIZ => self.instr_ldy(mem, x_indexed_zero_page),
+                opcode::LDY_IM => instr::instr_ldy(self, mem, immediate),
+                opcode::LDY_ABS => instr::instr_ldy(self, mem, absolute),
+                opcode::LDY_XIA => instr::instr_ldy(self, mem, x_indexed_absolute),
+                opcode::LDY_ZP => instr::instr_ldy(self, mem, zero_page),
+                opcode::LDY_XIZ => instr::instr_ldy(self, mem, x_indexed_zero_page),
 
-                instr::STA_ABS => self.instr_sta(mem, absolute),
-                instr::STA_XIA => self.instr_sta(mem, x_indexed_absolute),
-                instr::STA_YIA => self.instr_sta(mem, y_indexed_absolute),
-                instr::STA_ZP => self.instr_sta(mem, zero_page),
-                instr::STA_XIZ => self.instr_sta(mem, x_indexed_zero_page),
-                instr::STA_XIZI => self.instr_sta(mem, x_indexed_zero_page_indirect),
-                instr::STA_ZIYI => self.instr_sta(mem, zero_page_indirect_y_indexed),
+                opcode::STA_ABS => instr::instr_sta(self, mem, absolute),
+                opcode::STA_XIA => instr::instr_sta(self, mem, x_indexed_absolute),
+                opcode::STA_YIA => instr::instr_sta(self, mem, y_indexed_absolute),
+                opcode::STA_ZP => instr::instr_sta(self, mem, zero_page),
+                opcode::STA_XIZ => instr::instr_sta(self, mem, x_indexed_zero_page),
+                opcode::STA_XIZI => instr::instr_sta(self, mem, x_indexed_zero_page_indirect),
+                opcode::STA_ZIYI => instr::instr_sta(self, mem, zero_page_indirect_y_indexed),
 
-                instr::STX_ABS => self.instr_stx(mem, absolute),
-                instr::STX_ZP => self.instr_stx(mem, zero_page),
-                instr::STX_YIZ => self.instr_stx(mem, y_indexed_zero_page),
+                opcode::STX_ABS => instr::instr_stx(self, mem, absolute),
+                opcode::STX_ZP => instr::instr_stx(self, mem, zero_page),
+                opcode::STX_YIZ => instr::instr_stx(self, mem, y_indexed_zero_page),
 
-                instr::STY_ABS => self.instr_sty(mem, absolute),
-                instr::STY_ZP => self.instr_sty(mem, zero_page),
-                instr::STY_XIZ => self.instr_sty(mem, x_indexed_zero_page),
+                opcode::STY_ABS => instr::instr_sty(self, mem, absolute),
+                opcode::STY_ZP => instr::instr_sty(self, mem, zero_page),
+                opcode::STY_XIZ => instr::instr_sty(self, mem, x_indexed_zero_page),
 
-                instr::TAX => self.instr_tax(mem, implied),
-                instr::TAY => self.instr_tay(mem, implied),
-                instr::TSX => self.instr_tsx(mem, implied),
-                instr::TXA => self.instr_txa(mem, implied),
-                instr::TXS => self.instr_txs(mem, implied),
-                instr::TYA => self.instr_tya(mem, implied),
+                opcode::TAX => instr::instr_tax(self, mem, implied),
+                opcode::TAY => instr::instr_tay(self, mem, implied),
+                opcode::TSX => instr::instr_tsx(self, mem, implied),
+                opcode::TXA => instr::instr_txa(self, mem, implied),
+                opcode::TXS => instr::instr_txs(self, mem, implied),
+                opcode::TYA => instr::instr_tya(self, mem, implied),
 
-                instr::PHA => self.instr_pha(mem, implied),
-                instr::PHP => self.instr_php(mem, implied),
-                instr::PLA => self.instr_pla(mem, implied),
-                instr::PLP => self.instr_plp(mem, implied),
+                opcode::PHA => instr::instr_pha(self, mem, implied),
+                opcode::PHP => instr::instr_php(self, mem, implied),
+                opcode::PLA => instr::instr_pla(self, mem, implied),
+                opcode::PLP => instr::instr_plp(self, mem, implied),
 
-                instr::ASLA => self.instr_asl(mem, absolute),
-                instr::ASL_ABS => self.instr_asl(mem, accumulator),
-                instr::ASL_XIA => self.instr_asl(mem, x_indexed_absolute),
-                instr::ASL_ZP => self.instr_asl(mem, zero_page),
-                instr::ASL_XIZ => self.instr_asl(mem, x_indexed_zero_page),
+                opcode::ASLA => instr::instr_asl(self, mem, absolute),
+                opcode::ASL_ABS => instr::instr_asl(self, mem, accumulator),
+                opcode::ASL_XIA => instr::instr_asl(self, mem, x_indexed_absolute),
+                opcode::ASL_ZP => instr::instr_asl(self, mem, zero_page),
+                opcode::ASL_XIZ => instr::instr_asl(self, mem, x_indexed_zero_page),
 
-                instr::LSRA => self.instr_lsr(mem, absolute),
-                instr::LSR_ABS => self.instr_lsr(mem, accumulator),
-                instr::LSR_XIA => self.instr_lsr(mem, x_indexed_absolute),
-                instr::LSR_ZP => self.instr_lsr(mem, zero_page),
-                instr::LSR_XIZ => self.instr_lsr(mem, x_indexed_zero_page),
+                opcode::LSRA => instr::instr_lsr(self, mem, absolute),
+                opcode::LSR_ABS => instr::instr_lsr(self, mem, accumulator),
+                opcode::LSR_XIA => instr::instr_lsr(self, mem, x_indexed_absolute),
+                opcode::LSR_ZP => instr::instr_lsr(self, mem, zero_page),
+                opcode::LSR_XIZ => instr::instr_lsr(self, mem, x_indexed_zero_page),
 
-                instr::ROLA => self.instr_rol(mem, accumulator),
-                instr::ROL_ABS => self.instr_rol(mem, absolute),
-                instr::ROL_XIA => self.instr_rol(mem, x_indexed_absolute),
-                instr::ROL_ZP => self.instr_rol(mem, zero_page),
-                instr::ROL_XIZ => self.instr_rol(mem, x_indexed_zero_page),
+                opcode::ROLA => instr::instr_rol(self, mem, accumulator),
+                opcode::ROL_ABS => instr::instr_rol(self, mem, absolute),
+                opcode::ROL_XIA => instr::instr_rol(self, mem, x_indexed_absolute),
+                opcode::ROL_ZP => instr::instr_rol(self, mem, zero_page),
+                opcode::ROL_XIZ => instr::instr_rol(self, mem, x_indexed_zero_page),
 
-                instr::RORA => self.instr_ror(mem, accumulator),
-                instr::ROR_ABS => self.instr_ror(mem, absolute),
-                instr::ROR_XIA => self.instr_ror(mem, x_indexed_absolute),
-                instr::ROR_ZP => self.instr_ror(mem, zero_page),
-                instr::ROR_XIZ => self.instr_ror(mem, x_indexed_zero_page),
+                opcode::RORA => instr::instr_ror(self, mem, accumulator),
+                opcode::ROR_ABS => instr::instr_ror(self, mem, absolute),
+                opcode::ROR_XIA => instr::instr_ror(self, mem, x_indexed_absolute),
+                opcode::ROR_ZP => instr::instr_ror(self, mem, zero_page),
+                opcode::ROR_XIZ => instr::instr_ror(self, mem, x_indexed_zero_page),
 
-                instr::AND_IM => self.instr_and(mem, immediate),
-                instr::AND_ABS => self.instr_and(mem, absolute),
-                instr::AND_XIA => self.instr_and(mem, x_indexed_absolute),
-                instr::AND_YIA => self.instr_and(mem, y_indexed_absolute),
-                instr::AND_ZP => self.instr_and(mem, zero_page),
-                instr::AND_XIZ => self.instr_and(mem, x_indexed_zero_page),
-                instr::AND_XIZI => self.instr_and(mem, x_indexed_zero_page_indirect),
-                instr::AND_ZIYI => self.instr_and(mem, zero_page_indirect_y_indexed),
+                opcode::AND_IM => instr::instr_and(self, mem, immediate),
+                opcode::AND_ABS => instr::instr_and(self, mem, absolute),
+                opcode::AND_XIA => instr::instr_and(self, mem, x_indexed_absolute),
+                opcode::AND_YIA => instr::instr_and(self, mem, y_indexed_absolute),
+                opcode::AND_ZP => instr::instr_and(self, mem, zero_page),
+                opcode::AND_XIZ => instr::instr_and(self, mem, x_indexed_zero_page),
+                opcode::AND_XIZI => instr::instr_and(self, mem, x_indexed_zero_page_indirect),
+                opcode::AND_ZIYI => instr::instr_and(self, mem, zero_page_indirect_y_indexed),
 
-                instr::BIT_ABS => self.instr_bit(mem, absolute),
-                instr::BIT_ZP => self.instr_bit(mem, zero_page),
+                opcode::BIT_ABS => instr::instr_bit(self, mem, absolute),
+                opcode::BIT_ZP => instr::instr_bit(self, mem, zero_page),
 
-                instr::EOR_IM => self.instr_eor(mem, immediate),
-                instr::EOR_ABS => self.instr_eor(mem, absolute),
-                instr::EOR_XIA => self.instr_eor(mem, x_indexed_absolute),
-                instr::EOR_YIA => self.instr_eor(mem, y_indexed_absolute),
-                instr::EOR_ZP => self.instr_eor(mem, zero_page),
-                instr::EOR_XIZ => self.instr_eor(mem, x_indexed_zero_page),
-                instr::EOR_XIZI => self.instr_eor(mem, x_indexed_zero_page_indirect),
-                instr::EOR_ZIYI => self.instr_eor(mem, zero_page_indirect_y_indexed),
+                opcode::EOR_IM => instr::instr_eor(self, mem, immediate),
+                opcode::EOR_ABS => instr::instr_eor(self, mem, absolute),
+                opcode::EOR_XIA => instr::instr_eor(self, mem, x_indexed_absolute),
+                opcode::EOR_YIA => instr::instr_eor(self, mem, y_indexed_absolute),
+                opcode::EOR_ZP => instr::instr_eor(self, mem, zero_page),
+                opcode::EOR_XIZ => instr::instr_eor(self, mem, x_indexed_zero_page),
+                opcode::EOR_XIZI => instr::instr_eor(self, mem, x_indexed_zero_page_indirect),
+                opcode::EOR_ZIYI => instr::instr_eor(self, mem, zero_page_indirect_y_indexed),
 
-                instr::ORA_IM => self.instr_ora(mem, immediate),
-                instr::ORA_ABS => self.instr_ora(mem, absolute),
-                instr::ORA_XIA => self.instr_ora(mem, x_indexed_absolute),
-                instr::ORA_YIA => self.instr_ora(mem, y_indexed_absolute),
-                instr::ORA_ZP => self.instr_ora(mem, zero_page),
-                instr::ORA_XIZ => self.instr_ora(mem, x_indexed_zero_page),
-                instr::ORA_XIZI => self.instr_ora(mem, x_indexed_zero_page_indirect),
-                instr::ORA_ZIYI => self.instr_ora(mem, zero_page_indirect_y_indexed),
+                opcode::ORA_IM => instr::instr_ora(self, mem, immediate),
+                opcode::ORA_ABS => instr::instr_ora(self, mem, absolute),
+                opcode::ORA_XIA => instr::instr_ora(self, mem, x_indexed_absolute),
+                opcode::ORA_YIA => instr::instr_ora(self, mem, y_indexed_absolute),
+                opcode::ORA_ZP => instr::instr_ora(self, mem, zero_page),
+                opcode::ORA_XIZ => instr::instr_ora(self, mem, x_indexed_zero_page),
+                opcode::ORA_XIZI => instr::instr_ora(self, mem, x_indexed_zero_page_indirect),
+                opcode::ORA_ZIYI => instr::instr_ora(self, mem, zero_page_indirect_y_indexed),
 
-                instr::ADC_IM => self.instr_adc(mem, immediate),
-                instr::ADC_ABS => self.instr_adc(mem, absolute),
-                instr::ADC_XIA => self.instr_adc(mem, x_indexed_absolute),
-                instr::ADC_YIA => self.instr_adc(mem, y_indexed_absolute),
-                instr::ADC_ZP => self.instr_adc(mem, zero_page),
-                instr::ADC_XIZ => self.instr_adc(mem, x_indexed_zero_page),
-                instr::ADC_XIZI => self.instr_adc(mem, x_indexed_zero_page_indirect),
-                instr::ADC_ZIYI => self.instr_adc(mem, zero_page_indirect_y_indexed),
+                opcode::ADC_IM => instr::instr_adc(self, mem, immediate),
+                opcode::ADC_ABS => instr::instr_adc(self, mem, absolute),
+                opcode::ADC_XIA => instr::instr_adc(self, mem, x_indexed_absolute),
+                opcode::ADC_YIA => instr::instr_adc(self, mem, y_indexed_absolute),
+                opcode::ADC_ZP => instr::instr_adc(self, mem, zero_page),
+                opcode::ADC_XIZ => instr::instr_adc(self, mem, x_indexed_zero_page),
+                opcode::ADC_XIZI => instr::instr_adc(self, mem, x_indexed_zero_page_indirect),
+                opcode::ADC_ZIYI => instr::instr_adc(self, mem, zero_page_indirect_y_indexed),
 
-                instr::CMP_IM => self.instr_cmp(mem, immediate),
-                instr::CMP_ABS => self.instr_cmp(mem, absolute),
-                instr::CMP_XIA => self.instr_cmp(mem, x_indexed_absolute),
-                instr::CMP_YIA => self.instr_cmp(mem, y_indexed_absolute),
-                instr::CMP_ZP => self.instr_cmp(mem, zero_page),
-                instr::CMP_XIZ => self.instr_cmp(mem, x_indexed_zero_page),
-                instr::CMP_XIZI => self.instr_cmp(mem, x_indexed_zero_page_indirect),
-                instr::CMP_ZIYI => self.instr_cmp(mem, zero_page_indirect_y_indexed),
+                opcode::CMP_IM => instr::instr_cmp(self, mem, immediate),
+                opcode::CMP_ABS => instr::instr_cmp(self, mem, absolute),
+                opcode::CMP_XIA => instr::instr_cmp(self, mem, x_indexed_absolute),
+                opcode::CMP_YIA => instr::instr_cmp(self, mem, y_indexed_absolute),
+                opcode::CMP_ZP => instr::instr_cmp(self, mem, zero_page),
+                opcode::CMP_XIZ => instr::instr_cmp(self, mem, x_indexed_zero_page),
+                opcode::CMP_XIZI => instr::instr_cmp(self, mem, x_indexed_zero_page_indirect),
+                opcode::CMP_ZIYI => instr::instr_cmp(self, mem, zero_page_indirect_y_indexed),
 
-                instr::CPX_IM => self.instr_cpx(mem, immediate),
-                instr::CPX_ABS => self.instr_cpx(mem, absolute),
-                instr::CPX_ZP => self.instr_cpx(mem, zero_page),
+                opcode::CPX_IM => instr::instr_cpx(self, mem, immediate),
+                opcode::CPX_ABS => instr::instr_cpx(self, mem, absolute),
+                opcode::CPX_ZP => instr::instr_cpx(self, mem, zero_page),
 
-                instr::CPY_IM => self.instr_cpy(mem, immediate),
-                instr::CPY_ABS => self.instr_cpy(mem, absolute),
-                instr::CPY_ZP => self.instr_cpy(mem, zero_page),
+                opcode::CPY_IM => instr::instr_cpy(self, mem, immediate),
+                opcode::CPY_ABS => instr::instr_cpy(self, mem, absolute),
+                opcode::CPY_ZP => instr::instr_cpy(self, mem, zero_page),
 
-                instr::SBC_IM => self.instr_sbc(mem, immediate),
-                instr::SBC_ABS => self.instr_sbc(mem, absolute),
-                instr::SBC_XIA => self.instr_sbc(mem, x_indexed_absolute),
-                instr::SBC_YIA => self.instr_sbc(mem, y_indexed_absolute),
-                instr::SBC_ZP => self.instr_sbc(mem, zero_page),
-                instr::SBC_XIZ => self.instr_sbc(mem, x_indexed_zero_page),
-                instr::SBC_XIZI => self.instr_sbc(mem, x_indexed_zero_page_indirect),
-                instr::SBC_ZIYI => self.instr_sbc(mem, zero_page_indirect_y_indexed),
+                opcode::SBC_IM => instr::instr_sbc(self, mem, immediate),
+                opcode::SBC_ABS => instr::instr_sbc(self, mem, absolute),
+                opcode::SBC_XIA => instr::instr_sbc(self, mem, x_indexed_absolute),
+                opcode::SBC_YIA => instr::instr_sbc(self, mem, y_indexed_absolute),
+                opcode::SBC_ZP => instr::instr_sbc(self, mem, zero_page),
+                opcode::SBC_XIZ => instr::instr_sbc(self, mem, x_indexed_zero_page),
+                opcode::SBC_XIZI => instr::instr_sbc(self, mem, x_indexed_zero_page_indirect),
+                opcode::SBC_ZIYI => instr::instr_sbc(self, mem, zero_page_indirect_y_indexed),
 
-                instr::DEC_ABS => self.instr_dec(mem, absolute),
-                instr::DEC_XIA => self.instr_dec(mem, x_indexed_absolute),
-                instr::DEC_ZP => self.instr_dec(mem, zero_page),
-                instr::DEC_XIZ => self.instr_dec(mem, x_indexed_zero_page),
-                instr::DEX => self.instr_dex(mem, implied),
-                instr::DEY => self.instr_dey(mem, implied),
+                opcode::DEC_ABS => instr::instr_dec(self, mem, absolute),
+                opcode::DEC_XIA => instr::instr_dec(self, mem, x_indexed_absolute),
+                opcode::DEC_ZP => instr::instr_dec(self, mem, zero_page),
+                opcode::DEC_XIZ => instr::instr_dec(self, mem, x_indexed_zero_page),
+                opcode::DEX => instr::instr_dex(self, mem, implied),
+                opcode::DEY => instr::instr_dey(self, mem, implied),
 
-                instr::INC_ABS => self.instr_inc(mem, absolute),
-                instr::INC_XIA => self.instr_inc(mem, x_indexed_absolute),
-                instr::INC_ZP => self.instr_inc(mem, zero_page),
-                instr::INC_XIZ => self.instr_inc(mem, x_indexed_zero_page),
-                instr::INX => self.instr_inx(mem, implied),
-                instr::INY => self.instr_iny(mem, implied),
+                opcode::INC_ABS => instr::instr_inc(self, mem, absolute),
+                opcode::INC_XIA => instr::instr_inc(self, mem, x_indexed_absolute),
+                opcode::INC_ZP => instr::instr_inc(self, mem, zero_page),
+                opcode::INC_XIZ => instr::instr_inc(self, mem, x_indexed_zero_page),
+                opcode::INX => instr::instr_inx(self, mem, implied),
+                opcode::INY => instr::instr_iny(self, mem, implied),
 
-                instr::BRK => self.instr_brk(mem, implied),
-                instr::JMP_ABS => self.instr_jmp(mem, absolute),
-                instr::JMP_ABSI => self.instr_jmp(mem, absolute_indirect),
-                instr::JSR_ABS => self.instr_jsr(mem, absolute),
-                instr::RTI => self.instr_rti(mem, implied),
-                instr::RTS => self.instr_rts(mem, implied),
+                opcode::BRK => instr::instr_brk(self, mem, implied),
+                opcode::JMP_ABS => instr::instr_jmp(self, mem, absolute),
+                opcode::JMP_ABSI => instr::instr_jmp(self, mem, absolute_indirect),
+                opcode::JSR_ABS => instr::instr_jsr(self, mem, absolute),
+                opcode::RTI => instr::instr_rti(self, mem, implied),
+                opcode::RTS => instr::instr_rts(self, mem, implied),
 
-                instr::BCC_REL => self.instr_bcc(mem, relative),
-                instr::BCS_REL => self.instr_bcs(mem, relative),
-                instr::BEQ_REL => self.instr_beq(mem, relative),
-                instr::BMI_REL => self.instr_bmi(mem, relative),
-                instr::BNE_REL => self.instr_bne(mem, relative),
-                instr::BPL_REL => self.instr_bpl(mem, relative),
-                instr::BVC_REL => self.instr_bvc(mem, relative),
-                instr::BVS_REL => self.instr_bvs(mem, relative),
+                opcode::BCC_REL => instr::instr_bcc(self, mem, relative),
+                opcode::BCS_REL => instr::instr_bcs(self, mem, relative),
+                opcode::BEQ_REL => instr::instr_beq(self, mem, relative),
+                opcode::BMI_REL => instr::instr_bmi(self, mem, relative),
+                opcode::BNE_REL => instr::instr_bne(self, mem, relative),
+                opcode::BPL_REL => instr::instr_bpl(self, mem, relative),
+                opcode::BVC_REL => instr::instr_bvc(self, mem, relative),
+                opcode::BVS_REL => instr::instr_bvs(self, mem, relative),
 
-                instr::CLC => self.instr_clc(mem, implied),
-                instr::CLD => self.instr_cld(mem, implied),
-                instr::CLI => self.instr_cli(mem, implied),
-                instr::CLV => self.instr_clv(mem, implied),
+                opcode::CLC => instr::instr_clc(self, mem, implied),
+                opcode::CLD => instr::instr_cld(self, mem, implied),
+                opcode::CLI => instr::instr_cli(self, mem, implied),
+                opcode::CLV => instr::instr_clv(self, mem, implied),
 
-                instr::SEC => self.instr_sec(mem, implied),
-                instr::SED => self.instr_sed(mem, implied),
-                instr::SEI => self.instr_sei(mem, implied),
+                opcode::SEC => instr::instr_sec(self, mem, implied),
+                opcode::SED => instr::instr_sed(self, mem, implied),
+                opcode::SEI => instr::instr_sei(self, mem, implied),
 
-                instr::NOP => self.instr_nop(mem, implied),
+                opcode::NOP => instr::instr_nop(self, mem, implied),
 
                 _ => unimplemented!(), //format!("Unimplemented instruvtion code {:x}", ins)),
             }
@@ -953,39 +375,39 @@ fn main() {
     cpu.pc = 0x200;
 
     // Load 0x42 to A
-    mem[0x200] = instr::LDA_IM;
+    mem[0x200] = opcode::LDA_IM;
     mem[0x201] = 0x42;
 
     // Load (0x0201) to X  (0x42)
-    mem[0x202] = instr::LDX_ABS;
+    mem[0x202] = opcode::LDX_ABS;
     mem[0x203] = 0x01;
     mem[0x204] = 0x02;
 
     // get_0x11()
-    mem[0x205] = instr::JSR_ABS;
+    mem[0x205] = opcode::JSR_ABS;
     mem[0x206] = 0x00;
     mem[0x207] = 0x10;
 
     // JMP 0x0200
-    mem[0x208] = instr::JMP_ABS;
+    mem[0x208] = opcode::JMP_ABS;
     mem[0x209] = 0x00;
     mem[0x20a] = 0x02;
 
     // Small subroutine: get_0x11()
-    mem[0x1000] = instr::LDA_IM;
+    mem[0x1000] = opcode::LDA_IM;
     mem[0x1001] = 0x11;
 
-    mem[0x1002] = instr::ROL_ABS;
+    mem[0x1002] = opcode::ROL_ABS;
     mem[0x1003] = 0x0;
     mem[0x1004] = 0x20;
     mem[0x2000] = 0b10100101;
 
-    mem[0x1005] = instr::ROR_ABS;
+    mem[0x1005] = opcode::ROR_ABS;
     mem[0x1006] = 0x1;
     mem[0x1007] = 0x20;
     mem[0x2001] = 0b11100000;
 
-    mem[0x1008] = instr::RTS;
+    mem[0x1008] = opcode::RTS;
 
     let cycles = 100000000;
     let s = Stopwatch::start_new();
