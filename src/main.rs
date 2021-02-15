@@ -1,6 +1,6 @@
 // Based on the documentation at http://www.obelisk.me.uk/6502/
 
-use std::ops::{Index, IndexMut};
+use std::ops::{Index, IndexMut, BitAnd, BitXor, BitOr};
 use std::hint::unreachable_unchecked;
 
 type Byte = u8;
@@ -443,6 +443,132 @@ impl R6502 {
         self.set_flag(status_flag::Z, m == 0);
     }
 
+    fn instr_and(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+        let m = addr_mode(self, mem, am_select::V).to_value();
+        self.a = self.a.bitand(m);
+        self.set_flag(status_flag::N, self.a & 0x80 != 0);
+        self.set_flag(status_flag::Z, self.a == 0);
+    }
+
+    fn instr_bit(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+        let m = addr_mode(self, mem, am_select::V).to_value();
+        let a = self.a.bitand(m);
+        self.set_flag(status_flag::N, m & 0x80 != 0);
+        self.set_flag(status_flag::V, m & 0x40 != 0);
+        self.set_flag(status_flag::Z, a == 0);
+    }
+
+    fn instr_eor(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+        let m = addr_mode(self, mem, am_select::V).to_value();
+        self.a = self.a.bitxor(m);
+        self.set_flag(status_flag::N, self.a & 0x80 != 0);
+        self.set_flag(status_flag::Z, self.a == 0);
+    }
+
+    fn instr_ora(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+        let m = addr_mode(self, mem, am_select::V).to_value();
+        self.a = self.a.bitor(m);
+        self.set_flag(status_flag::N, self.a & 0x80 != 0);
+        self.set_flag(status_flag::Z, self.a == 0);
+    }
+
+    fn instr_adc(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+        let m = addr_mode(self, mem, am_select::V).to_value();
+        let c = self.sr & 0x1;
+        if self.sr & status_flag::D == 0 {
+            let a = self.a as u16 + m as u16 + c as u16;
+            let oa = self.a;
+            self.a = a as u8;
+            self.set_flag(status_flag::N, self.a & 0x80 != 0);
+            self.set_flag(status_flag::Z, self.a == 0);
+            self.set_flag(status_flag::C, a & 0x100 != 0);
+            self.set_flag(status_flag::V, oa & 0x80 != (a as u8) & 0x80);
+        } else {
+            unimplemented!("Decimal mode is unimplemented!");
+        }
+    }
+
+    fn instr_cmp(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+        let m = addr_mode(self, mem, am_select::V).to_value();
+        let a = self.a as i16 - m as i16;
+        self.set_flag(status_flag::N, a & 0x80 != 0);
+        self.set_flag(status_flag::Z, a == 0);
+        self.set_flag(status_flag::C, a >= 0);
+    }
+
+    fn instr_cpx(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+        let m = addr_mode(self, mem, am_select::V).to_value();
+        let a = self.x as i16 - m as i16;
+        self.set_flag(status_flag::N, a & 0x80 != 0);
+        self.set_flag(status_flag::Z, a == 0);
+        self.set_flag(status_flag::C, a >= 0);
+    }
+
+    fn instr_cpy(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+        let m = addr_mode(self, mem, am_select::V).to_value();
+        let a = self.y as i16 - m as i16;
+        self.set_flag(status_flag::N, a & 0x80 != 0);
+        self.set_flag(status_flag::Z, a == 0);
+        self.set_flag(status_flag::C, a >= 0);
+    }
+
+    fn instr_sbc(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+        let m = addr_mode(self, mem, am_select::V).to_value();
+        let c = self.sr & 0x1;
+        let c = if c == 1 { 0 } else { 1 };
+        if self.sr & status_flag::D == 0 {
+            let a = self.a as i16 - m as i16 - c as i16;
+            let oa = self.a;
+            self.a = a as u8;
+            self.set_flag(status_flag::N, self.a & 0x80 != 0);
+            self.set_flag(status_flag::Z, self.a == 0);
+            self.set_flag(status_flag::C, a >= 0);
+            self.set_flag(status_flag::V, a < -127 || a > 127);
+        } else {
+            unimplemented!("Decimal mode is unimplemented!");
+        }
+    }
+
+    fn instr_dec(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+        let addr = addr_mode(self, mem, am_select::A).to_addr();
+        let m = self.fetch_byte_with_address(mem, addr).wrapping_sub(1);
+        self.write_byte_to_address(mem, addr, m);
+        self.set_flag(status_flag::N, m & 0x80 != 0);
+        self.set_flag(status_flag::Z, m == 0);
+    }
+
+    fn instr_dex(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+        self.x = self.x.wrapping_sub(1);
+        self.set_flag(status_flag::N, self.x & 0x80 != 0);
+        self.set_flag(status_flag::Z, self.x == 0);
+    }
+
+    fn instr_dey(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+        self.y = self.y.wrapping_sub(1);
+        self.set_flag(status_flag::N, self.y & 0x80 != 0);
+        self.set_flag(status_flag::Z, self.y == 0);
+    }
+
+    fn instr_inc(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+        let addr = addr_mode(self, mem, am_select::A).to_addr();
+        let m = self.fetch_byte_with_address(mem, addr).wrapping_add(1);
+        self.write_byte_to_address(mem, addr, m);
+        self.set_flag(status_flag::N, m & 0x80 != 0);
+        self.set_flag(status_flag::Z, m == 0);
+    }
+
+    fn instr_inx(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+        self.x = self.x.wrapping_add(1);
+        self.set_flag(status_flag::N, self.x & 0x80 != 0);
+        self.set_flag(status_flag::Z, self.x == 0);
+    }
+
+    fn instr_iny(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+        self.y = self.y.wrapping_add(1);
+        self.set_flag(status_flag::N, self.y & 0x80 != 0);
+        self.set_flag(status_flag::Z, self.y == 0);
+    }
+
     fn instr_jmp(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
         self.pc = addr_mode(self, mem, am_select::A).to_addr();
     }
@@ -644,6 +770,85 @@ impl R6502 {
                 instr::ROR_ZP => self.instr_ror(mem, zero_page),
                 instr::ROR_XIZ => self.instr_ror(mem, x_indexed_zero_page),
 
+                instr::AND_IM => self.instr_and(mem, immediate),
+                instr::AND_ABS => self.instr_and(mem, absolute),
+                instr::AND_XIA => self.instr_and(mem, x_indexed_absolute),
+                instr::AND_YIA => self.instr_and(mem, y_indexed_absolute),
+                instr::AND_ZP => self.instr_and(mem, zero_page),
+                instr::AND_XIZ => self.instr_and(mem, x_indexed_zero_page),
+                instr::AND_XIZI => self.instr_and(mem, x_indexed_zero_page_indirect),
+                instr::AND_ZIYI => self.instr_and(mem, zero_page_indirect_y_indexed),
+
+                instr::BIT_ABS => self.instr_bit(mem, absolute),
+                instr::BIT_ZP => self.instr_bit(mem, zero_page),
+
+                instr::EOR_IM => self.instr_eor(mem, immediate),
+                instr::EOR_ABS => self.instr_eor(mem, absolute),
+                instr::EOR_XIA => self.instr_eor(mem, x_indexed_absolute),
+                instr::EOR_YIA => self.instr_eor(mem, y_indexed_absolute),
+                instr::EOR_ZP => self.instr_eor(mem, zero_page),
+                instr::EOR_XIZ => self.instr_eor(mem, x_indexed_zero_page),
+                instr::EOR_XIZI => self.instr_eor(mem, x_indexed_zero_page_indirect),
+                instr::EOR_ZIYI => self.instr_eor(mem, zero_page_indirect_y_indexed),
+
+                instr::ORA_IM => self.instr_ora(mem, immediate),
+                instr::ORA_ABS => self.instr_ora(mem, absolute),
+                instr::ORA_XIA => self.instr_ora(mem, x_indexed_absolute),
+                instr::ORA_YIA => self.instr_ora(mem, y_indexed_absolute),
+                instr::ORA_ZP => self.instr_ora(mem, zero_page),
+                instr::ORA_XIZ => self.instr_ora(mem, x_indexed_zero_page),
+                instr::ORA_XIZI => self.instr_ora(mem, x_indexed_zero_page_indirect),
+                instr::ORA_ZIYI => self.instr_ora(mem, zero_page_indirect_y_indexed),
+
+                instr::ADC_IM => self.instr_adc(mem, immediate),
+                instr::ADC_ABS => self.instr_adc(mem, absolute),
+                instr::ADC_XIA => self.instr_adc(mem, x_indexed_absolute),
+                instr::ADC_YIA => self.instr_adc(mem, y_indexed_absolute),
+                instr::ADC_ZP => self.instr_adc(mem, zero_page),
+                instr::ADC_XIZ => self.instr_adc(mem, x_indexed_zero_page),
+                instr::ADC_XIZI => self.instr_adc(mem, x_indexed_zero_page_indirect),
+                instr::ADC_ZIYI => self.instr_adc(mem, zero_page_indirect_y_indexed),
+
+                instr::CMP_IM => self.instr_cmp(mem, immediate),
+                instr::CMP_ABS => self.instr_cmp(mem, absolute),
+                instr::CMP_XIA => self.instr_cmp(mem, x_indexed_absolute),
+                instr::CMP_YIA => self.instr_cmp(mem, y_indexed_absolute),
+                instr::CMP_ZP => self.instr_cmp(mem, zero_page),
+                instr::CMP_XIZ => self.instr_cmp(mem, x_indexed_zero_page),
+                instr::CMP_XIZI => self.instr_cmp(mem, x_indexed_zero_page_indirect),
+                instr::CMP_ZIYI => self.instr_cmp(mem, zero_page_indirect_y_indexed),
+
+                instr::CPX_IM => self.instr_cpx(mem, immediate),
+                instr::CPX_ABS => self.instr_cpx(mem, absolute),
+                instr::CPX_ZP => self.instr_cpx(mem, zero_page),
+
+                instr::CPY_IM => self.instr_cpy(mem, immediate),
+                instr::CPY_ABS => self.instr_cpy(mem, absolute),
+                instr::CPY_ZP => self.instr_cpy(mem, zero_page),
+
+                instr::SBC_IM => self.instr_sbc(mem, immediate),
+                instr::SBC_ABS => self.instr_sbc(mem, absolute),
+                instr::SBC_XIA => self.instr_sbc(mem, x_indexed_absolute),
+                instr::SBC_YIA => self.instr_sbc(mem, y_indexed_absolute),
+                instr::SBC_ZP => self.instr_sbc(mem, zero_page),
+                instr::SBC_XIZ => self.instr_sbc(mem, x_indexed_zero_page),
+                instr::SBC_XIZI => self.instr_sbc(mem, x_indexed_zero_page_indirect),
+                instr::SBC_ZIYI => self.instr_sbc(mem, zero_page_indirect_y_indexed),
+
+                instr::DEC_ABS => self.instr_dec(mem, absolute),
+                instr::DEC_XIA => self.instr_dec(mem, x_indexed_absolute),
+                instr::DEC_ZP => self.instr_dec(mem, zero_page),
+                instr::DEC_XIZ => self.instr_dec(mem, x_indexed_zero_page),
+                instr::DEX => self.instr_dex(mem, implied),
+                instr::DEY => self.instr_dey(mem, implied),
+
+                instr::INC_ABS => self.instr_inc(mem, absolute),
+                instr::INC_XIA => self.instr_inc(mem, x_indexed_absolute),
+                instr::INC_ZP => self.instr_inc(mem, zero_page),
+                instr::INC_XIZ => self.instr_inc(mem, x_indexed_zero_page),
+                instr::INX => self.instr_inx(mem, implied),
+                instr::INY => self.instr_iny(mem, implied),
+
                 instr::BRK => self.instr_brk(mem, implied),
                 instr::JMP_ABS => self.instr_jmp(mem, absolute),
                 instr::JMP_ABSI => self.instr_jmp(mem, absolute_indirect),
@@ -671,7 +876,7 @@ impl R6502 {
 
                 instr::NOP => self.instr_nop(mem, implied),
 
-                _ => unimplemented!(),
+                _ => unimplemented!(format!("Unimplemented instruvtion code {:x}", ins)),
             }
         }
     }
@@ -785,7 +990,12 @@ fn main() {
     mem[0x1004] = 0x20;
     mem[0x2000] = 0b10100101;
 
-    mem[0x1005] = instr::RTS;
+    mem[0x1005] = instr::ROR_ABS;
+    mem[0x1006] = 0x1;
+    mem[0x1007] = 0x20;
+    mem[0x2001] = 0b11100000;
+
+    mem[0x1008] = instr::RTS;
 
     cpu.execute(&mut mem, 1000);
 
