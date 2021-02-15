@@ -1,6 +1,7 @@
 // Based on the documentation at http://www.obelisk.me.uk/6502/
 
 use std::ops::{Index, IndexMut};
+use std::hint::unreachable_unchecked;
 
 type Byte = u8;
 type Word = u16;
@@ -37,7 +38,7 @@ pub struct R6502 {
 impl Reset for R6502 {
     fn reset(&mut self) {
         self.pc = 0xfffc;
-        self.sp = 0;  // 0x100 - the 1 is implied
+        self.sp = 0xff;  // 0x100 - the 1 is implied
         self.a = 0;
         self.x = 0;
         self.y = 0;
@@ -45,88 +46,172 @@ impl Reset for R6502 {
     }
 }
 
-// FIXME: do I need to specify to returnthe address or the value therein?
-// FIXME: JMP/BRANCH only needs adress, value isn't read (and also does not eat cycles)!
-pub fn immediate(cpu: &mut R6502, mem: &mut Memory) -> (u8, u16) {
-    let addr = cpu.pc;
-    (cpu.fetch_byte_with_pc(mem), addr)
+pub enum AMValue {
+    Address(u16),
+    Value(u8),
+    None,
 }
 
-pub fn accumulator(cpu: &mut R6502, mem: &mut Memory) -> (u8, u16) {
-    (cpu.a, 0)
+impl AMValue {
+    fn to_addr(self) -> u16 {
+        match self {
+            AMValue::Address(a) => a,
+            _ => panic!("Cannot get address of a Value"),
+        }
+    }
+
+    fn to_value(self) -> u8 {
+        match self {
+            AMValue::Value(a) => a,
+            _ => panic!("Cannot get value of an Address"),
+        }
+    }
 }
 
-pub fn absolute(cpu: &mut R6502, mem: &mut Memory) -> (u8, u16) {
+impl From<u8> for AMValue {
+    fn from(v: u8) -> Self {
+        AMValue::Value(v)
+    }
+}
+
+impl From<u16> for AMValue {
+    fn from(v: u16) -> Self {
+        AMValue::Address(v)
+    }
+}
+
+mod am_select {
+    pub const A: u8 = 1;
+    pub const V: u8 = 2;
+}
+
+pub fn implied(cpu: &mut R6502, mem: &mut Memory, mode: u8) -> AMValue {
+    unreachable!("implied addressing mode should NEVER try to resolve its operand");
+}
+
+pub fn immediate(cpu: &mut R6502, mem: &mut Memory, mode: u8) -> AMValue {
+    if mode == am_select::A {
+        cpu.pc.into()
+    } else {
+        cpu.fetch_byte_with_pc(mem).into()
+    }
+}
+
+pub fn accumulator(cpu: &mut R6502, mem: &mut Memory, mode: u8) -> AMValue {
+    if mode == am_select::A {
+        unreachable!();
+    }
+    cpu.a.into()
+}
+
+pub fn absolute(cpu: &mut R6502, mem: &mut Memory, mode: u8) -> AMValue {
     let addr = cpu.fetch_byte_with_pc(mem) as u16;
     let addr = addr | (cpu.fetch_byte_with_pc(mem) as u16) << 8;
-    (cpu.fetch_byte_with_address(mem, addr), addr)
+    if mode == am_select::A {
+        addr.into()
+    } else {
+        cpu.fetch_byte_with_address(mem, addr).into()
+    }
 }
 
-pub fn x_indexed_absolute(cpu: &mut R6502, mem: &mut Memory) -> (u8, u16) {
-    let addr = cpu.fetch_byte_with_pc(mem) as u16;
-    let addr = addr | (cpu.fetch_byte_with_pc(mem) as u16) << 8;
+pub fn x_indexed_absolute(cpu: &mut R6502, mem: &mut Memory, mode: u8) -> AMValue {
+    let addr = absolute(cpu, mem, am_select::A).to_addr();
     let addr = addr.wrapping_add(cpu.x as u16);
-    (cpu.fetch_byte_with_address(mem, addr), addr)
+    if mode == am_select::A {
+        addr.into()
+    } else {
+        cpu.fetch_byte_with_address(mem, addr).into()
+    }
 }
 
-pub fn y_indexed_absolute(cpu: &mut R6502, mem: &mut Memory) -> (u8, u16) {
-    let addr = cpu.fetch_byte_with_pc(mem) as u16;
-    let addr = addr | (cpu.fetch_byte_with_pc(mem) as u16) << 8;
+pub fn y_indexed_absolute(cpu: &mut R6502, mem: &mut Memory, mode: u8) -> AMValue {
+    let addr = absolute(cpu, mem, am_select::A).to_addr();
     let addr = addr.wrapping_add(cpu.y as u16);
-    (cpu.fetch_byte_with_address(mem, addr), addr)
+    if mode == am_select::A {
+        addr.into()
+    } else {
+        cpu.fetch_byte_with_address(mem, addr).into()
+    }
 }
 
 // This is only ever possible with JMP, hence we just set the PC
-pub fn absolute_indirect(cpu: &mut R6502, mem: &mut Memory) -> (u8, u16) {
-    let addr = cpu.fetch_byte_with_pc(mem) as u16;
-    let addr = addr | (cpu.fetch_byte_with_pc(mem) as u16) << 8;
+pub fn absolute_indirect(cpu: &mut R6502, mem: &mut Memory, mode: u8) -> AMValue {
+    let addr = absolute(cpu, mem, am_select::A).to_addr();
     let next = cpu.fetch_byte_with_address(mem, addr) as u16;
     let next = next | (cpu.fetch_byte_with_address(mem, addr.wrapping_add(1)) as u16) << 8;
-    (0, next)
+    if mode == am_select::A {
+        next.into()
+    } else {
+        unreachable!("absolute_indirect() addressing mode should never dereference the address");
+    }
 }
 
-pub fn zero_page(cpu: &mut R6502, mem: &mut Memory) -> (u8, u16) {
+pub fn zero_page(cpu: &mut R6502, mem: &mut Memory, mode: u8) -> AMValue {
     let op = cpu.fetch_byte_with_pc(mem) as u16;
-    (cpu.fetch_byte_with_address(mem, op), op)
+    if mode == am_select::A {
+        op.into()
+    } else {
+        cpu.fetch_byte_with_address(mem, op).into()
+    }
 }
 
-pub fn x_indexed_zero_page(cpu: &mut R6502, mem: &mut Memory) -> (u8, u16) {
+pub fn x_indexed_zero_page(cpu: &mut R6502, mem: &mut Memory, mode: u8) -> AMValue {
     let op = cpu.fetch_byte_with_pc(mem);
     let addr = cpu.x.wrapping_add(op) as u16;
-    (cpu.fetch_byte_with_address(mem, addr), addr)
+    if mode == am_select::A {
+        addr.into()
+    } else {
+        cpu.fetch_byte_with_address(mem, addr).into()
+    }
 }
 
-pub fn y_indexed_zero_page(cpu: &mut R6502, mem: &mut Memory) -> (u8, u16) {
+pub fn y_indexed_zero_page(cpu: &mut R6502, mem: &mut Memory, mode: u8) -> AMValue {
     let op = cpu.fetch_byte_with_pc(mem);
     let addr = cpu.y.wrapping_add(op) as u16;
-    (cpu.fetch_byte_with_address(mem, addr), addr)
+    if mode == am_select::A {
+        addr.into()
+    } else {
+        cpu.fetch_byte_with_address(mem, addr).into()
+    }
 }
 
-pub fn x_indexed_zero_page_indirect(cpu: &mut R6502, mem: &mut Memory) -> (u8, u16) {
+pub fn x_indexed_zero_page_indirect(cpu: &mut R6502, mem: &mut Memory, mode: u8) -> AMValue {
     let op = cpu.fetch_byte_with_pc(mem);
     let addr = cpu.x.wrapping_add(op) as u16;
     let next = cpu.fetch_byte_with_address(mem, addr) as u16;
     let next = next | (cpu.fetch_byte_with_address(mem, addr.wrapping_add(1)) as u16) << 8;
-    (cpu.fetch_byte_with_address(mem, next), next)
+    if mode == am_select::A {
+        next.into()
+    } else {
+        cpu.fetch_byte_with_address(mem, next).into()
+    }
 }
 
-pub fn zero_page_indirect_y_indexed(cpu: &mut R6502, mem: &mut Memory) -> (u8, u16) {
+pub fn zero_page_indirect_y_indexed(cpu: &mut R6502, mem: &mut Memory, mode: u8) -> AMValue {
     let op = cpu.fetch_byte_with_pc(mem);
     let addr = op as u16;
     let next = cpu.fetch_byte_with_address(mem, addr) as u16;
     let next = next | (cpu.fetch_byte_with_address(mem, addr.wrapping_add(1)) as u16) << 8;
     let next = next.wrapping_add(cpu.y as u16);
-    (cpu.fetch_byte_with_address(mem, next), next)
+    if mode == am_select::A {
+        next.into()
+    } else {
+        cpu.fetch_byte_with_address(mem, next).into()
+    }
 }
 
 // XXX: this is only ever used by JMP
-pub fn relative(cpu: &mut R6502, mem: &mut Memory) -> (u8, u16) {
+pub fn relative(cpu: &mut R6502, mem: &mut Memory, mode: u8) -> AMValue {
     let op = cpu.fetch_byte_with_pc(mem);
     let op = op as i8;
     // XXX I am not happy with this wild around sign/unsign casting
     let pc = cpu.pc as i32;
     let pc = pc + op as i32;
-    (0, pc as u16)
+    if mode == am_select::A {
+        AMValue::from(pc as u16)
+    } else {
+        unreachable!()
+    }
 }
 
 impl R6502 {
@@ -148,12 +233,12 @@ impl R6502 {
 
     pub fn new() -> Self {
         R6502 {
-            pc: 0xfffc,   // reset vector
-            sp: 0xff,
+            pc: 0,
+            sp: 0,
             a: 0,
             x: 0,
             y: 0,
-            sr: 0x20,   // One bit is specified as always 1
+            sr: 0,
             count: 0,
         }
     }
@@ -169,6 +254,11 @@ impl R6502 {
         mem[addr]
     }
 
+    pub fn write_byte_to_address(&mut self, mem: &mut Memory, addr: u16, value: u8) {
+        self.count += 1;
+        mem[addr] = value;
+    }
+
     pub fn set_flag(&mut self, flag: Byte, val: bool) {
         match val {
             true => self.sr |= flag,
@@ -176,26 +266,67 @@ impl R6502 {
         }
     }
 
-    fn instr_lda(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory) -> (u8, u16)) {
-        self.a = addr_mode(self, mem).0;
+    fn instr_lda(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, u8) -> AMValue) {
+        self.a = addr_mode(self, mem, am_select::V).to_value();
         self.set_flag(status_flag::N, self.a & 0x80 != 0);
         self.set_flag(status_flag::Z, self.a == 0);
     }
 
-    fn instr_ldx(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory) -> (u8, u16)) {
-        self.x = addr_mode(self, mem).0;
+    fn instr_ldx(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, u8) -> AMValue) {
+        self.x = addr_mode(self, mem, am_select::V).to_value();
         self.set_flag(status_flag::N, self.x & 0x80 != 0);
         self.set_flag(status_flag::Z, self.x == 0);
     }
 
-    fn instr_ldy(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory) -> (u8, u16)) {
-        self.y = addr_mode(self, mem).0;
+    fn instr_ldy(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, u8) -> AMValue) {
+        self.y = addr_mode(self, mem, am_select::V).to_value();
         self.set_flag(status_flag::N, self.y & 0x80 != 0);
         self.set_flag(status_flag::Z, self.y == 0);
     }
 
-    fn instr_jmp(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory) -> (u8, u16)) {
-        self.pc = addr_mode(self, mem).1;
+    fn instr_sta(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, u8) -> AMValue) {
+        let addr = addr_mode(self, mem, am_select::A).to_addr();
+        self.write_byte_to_address(mem, addr, self.a);
+    }
+
+    fn instr_stx(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, u8) -> AMValue) {
+        let addr = addr_mode(self, mem, am_select::A).to_addr();
+        self.write_byte_to_address(mem, addr, self.x);
+    }
+
+    fn instr_sty(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, u8) -> AMValue) {
+        let addr = addr_mode(self, mem, am_select::A).to_addr();
+        self.write_byte_to_address(mem, addr, self.y);
+    }
+
+    fn instr_jmp(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, u8) -> AMValue) {
+        self.pc = addr_mode(self, mem, am_select::A).to_addr();
+    }
+
+    fn instr_brk(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, u8) -> AMValue) {
+        let sr = self.sr;
+        let pc = self.pc + 2;
+        self.push(mem, (pc >> 8) as u8);
+        self.push(mem, (pc & 0xff) as u8);
+        self.push(mem, sr);
+        self.set_flag(status_flag::I, true);
+        self.pc = 0xfffe;
+        self.count += 7;
+    }
+
+    fn instr_jsr(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, u8) -> AMValue) {
+        let pc = self.pc + 2;
+        self.push(mem, (pc >> 8) as u8);
+        self.push(mem, (pc & 0xff) as u8);
+        let addr = addr_mode(self, mem, am_select::A).to_addr();
+        self.pc = addr;
+    }
+
+    fn instr_rts(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, u8) -> AMValue) {
+        let pcl = self.pop(mem);
+        let pch = self.pop(mem);
+        let pc = pcl as u16 | (pch as u16) << 8;
+        self.pc = pc;
     }
 
     fn execute(&mut self, mem: &mut Memory, mut count: isize) {
@@ -224,8 +355,29 @@ impl R6502 {
                 instr::LDY_ZP => self.instr_ldy(mem, zero_page),
                 instr::LDY_XIZ => self.instr_ldy(mem, x_indexed_zero_page),
 
+                instr::STA_ABS => self.instr_sta(mem, absolute),
+                instr::STA_XIA => self.instr_sta(mem, x_indexed_absolute),
+                instr::STA_YIA => self.instr_sta(mem, y_indexed_absolute),
+                instr::STA_ZP => self.instr_sta(mem, zero_page),
+                instr::STA_XIZ => self.instr_sta(mem, x_indexed_zero_page),
+                instr::STA_XIZI => self.instr_sta(mem, x_indexed_zero_page_indirect),
+                instr::STA_ZIYI => self.instr_sta(mem, zero_page_indirect_y_indexed),
+
+                instr::STX_ABS => self.instr_stx(mem, absolute),
+                instr::STX_ZP => self.instr_stx(mem, zero_page),
+                instr::STX_YIZ => self.instr_stx(mem, y_indexed_zero_page),
+
+                instr::STY_ABS => self.instr_sty(mem, absolute),
+                instr::STY_ZP => self.instr_sty(mem, zero_page),
+                instr::STY_XIZ => self.instr_sty(mem, x_indexed_zero_page),
+
+                instr::BRK => self.instr_brk(mem, implied),
+
                 instr::JMP_ABS => self.instr_jmp(mem, absolute),
                 instr::JMP_ABSI => self.instr_jmp(mem, absolute_indirect),
+
+                instr::JSR_ABS => self.instr_jsr(mem, absolute),
+                instr::RTS => self.instr_rts(mem, implied),
 
                 _ => unimplemented!(),
             }
@@ -309,6 +461,7 @@ mod status_flag {
 fn main() {
     let mut cpu = R6502::new();
     let mut mem = Memory::new();
+
     cpu.reset();
     cpu.pc = 0x200;
 
@@ -321,10 +474,20 @@ fn main() {
     mem[0x203] = 0x01;
     mem[0x204] = 0x02;
 
-    // JMP 0x0200
-    mem[0x205] = instr::JMP_ABS;
+    // get_0x11()
+    mem[0x205] = instr::JSR_ABS;
     mem[0x206] = 0x00;
-    mem[0x207] = 0x02;
+    mem[0x207] = 0x10;
+
+    // JMP 0x0200
+    mem[0x208] = instr::JMP_ABS;
+    mem[0x209] = 0x00;
+    mem[0x20a] = 0x02;
+
+    // Small subroutine: get_0x11()
+    mem[0x1000] = instr::LDA_IM;
+    mem[0x1001] = 0x11;
+    mem[0x1002] = instr::RTS;
 
     cpu.execute(&mut mem, 10);
 
