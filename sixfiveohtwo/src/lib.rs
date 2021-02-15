@@ -3,9 +3,9 @@ use std::ops::{Index, IndexMut};
 type Byte = u8;
 type Word = u16;
 
+pub mod adressing_mode;
 pub mod instr;
 pub mod opcode;
-pub mod adressing_mode;
 
 pub trait Reset {
     fn reset(&mut self);
@@ -38,7 +38,7 @@ pub struct R6502 {
 impl Reset for R6502 {
     fn reset(&mut self) {
         self.pc = 0xfffc;
-        self.sp = 0xff;  // 0x100 - the 1 is implied
+        self.sp = 0xff; // 0x100 - the 1 is implied
         self.a = 0;
         self.x = 0;
         self.y = 0;

@@ -1,7 +1,4 @@
-use crate::{
-    R6502,
-    Memory,
-};
+use crate::{Memory, R6502};
 
 pub enum AMValue {
     Address(u16),

@@ -1,11 +1,6 @@
 use stopwatch::Stopwatch;
 
-use sixfiveohtwo::{
-    R6502,
-    Memory,
-    opcode,
-    Reset,
-};
+use sixfiveohtwo::{opcode, Memory, Reset, R6502};
 
 fn main() {
     let mut cpu = R6502::new();
