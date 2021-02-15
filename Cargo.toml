@@ -8,3 +8,4 @@ edition = "2018"
 
 [dependencies]
 cursive = "0.16"
+stopwatch = "0.0.7"

@@ -1,7 +1,7 @@
 // Based on the documentation at http://www.obelisk.me.uk/6502/
 
 use std::ops::{Index, IndexMut, BitAnd, BitXor, BitOr};
-use std::hint::unreachable_unchecked;
+use stopwatch::Stopwatch;
 
 type Byte = u8;
 type Word = u16;
@@ -12,6 +12,7 @@ trait Reset {
     fn reset(&mut self);
 }
 
+#[derive(Debug)]
 pub struct R6502 {
     pc: Word,
 
@@ -67,13 +68,6 @@ impl AMValue {
             _ => panic!("Cannot get value of an Address"),
         }
     }
-
-    fn is_accumulator(self) -> bool {
-        match self {
-            AMValue::Accumulator => true,
-            _ => false,
-        }
-    }
 }
 
 fn page(addr: u16) -> u8 {
@@ -93,125 +87,125 @@ impl From<u16> for AMValue {
 }
 
 #[derive(Eq, PartialEq, Copy, Clone)]
-pub enum am_select {
+pub enum AMSelect {
     A,
     V,
 }
 
-pub fn implied(cpu: &mut R6502, mem: &mut Memory, mode: am_select) -> AMValue {
+pub fn implied(_cpu: &mut R6502, _mem: &mut Memory, _mode: AMSelect) -> AMValue {
     unreachable!("implied addressing mode should NEVER try to resolve its operand");
 }
 
-pub fn immediate(cpu: &mut R6502, mem: &mut Memory, mode: am_select) -> AMValue {
+pub fn immediate(cpu: &mut R6502, mem: &mut Memory, mode: AMSelect) -> AMValue {
     match mode {
-        am_select::A => cpu.pc.into(),
-        am_select::V => cpu.fetch_byte_with_pc(mem).into(),
+        AMSelect::A => cpu.pc.into(),
+        AMSelect::V => cpu.fetch_byte_with_pc(mem).into(),
     }
 }
 
-pub fn accumulator(cpu: &mut R6502, mem: &mut Memory, mode: am_select) -> AMValue {
+pub fn accumulator(cpu: &mut R6502, _mem: &mut Memory, mode: AMSelect) -> AMValue {
     match mode {
-        am_select::V => cpu.a.into(),
-        am_select::A => AMValue::Accumulator,
+        AMSelect::V => cpu.a.into(),
+        AMSelect::A => AMValue::Accumulator,
     }
 }
 
-pub fn absolute(cpu: &mut R6502, mem: &mut Memory, mode: am_select) -> AMValue {
+pub fn absolute(cpu: &mut R6502, mem: &mut Memory, mode: AMSelect) -> AMValue {
     let addr = cpu.fetch_byte_with_pc(mem) as u16;
     let addr = addr | (cpu.fetch_byte_with_pc(mem) as u16) << 8;
     match mode {
-        am_select::A => addr.into(),
-        am_select::V => cpu.fetch_byte_with_address(mem, addr).into(),
+        AMSelect::A => addr.into(),
+        AMSelect::V => cpu.fetch_byte_with_address(mem, addr).into(),
     }
 }
 
-pub fn x_indexed_absolute(cpu: &mut R6502, mem: &mut Memory, mode: am_select) -> AMValue {
-    let addr = absolute(cpu, mem, am_select::A).to_addr();
+pub fn x_indexed_absolute(cpu: &mut R6502, mem: &mut Memory, mode: AMSelect) -> AMValue {
+    let addr = absolute(cpu, mem, AMSelect::A).to_addr();
     let addr = addr.wrapping_add(cpu.x as u16);
     match mode {
-        am_select::A => addr.into(),
-        am_select::V => cpu.fetch_byte_with_address(mem, addr).into(),
+        AMSelect::A => addr.into(),
+        AMSelect::V => cpu.fetch_byte_with_address(mem, addr).into(),
     }
 }
 
-pub fn y_indexed_absolute(cpu: &mut R6502, mem: &mut Memory, mode: am_select) -> AMValue {
-    let addr = absolute(cpu, mem, am_select::A).to_addr();
+pub fn y_indexed_absolute(cpu: &mut R6502, mem: &mut Memory, mode: AMSelect) -> AMValue {
+    let addr = absolute(cpu, mem, AMSelect::A).to_addr();
     let addr = addr.wrapping_add(cpu.y as u16);
     match mode {
-        am_select::A => addr.into(),
-        am_select::V => cpu.fetch_byte_with_address(mem, addr).into(),
+        AMSelect::A => addr.into(),
+        AMSelect::V => cpu.fetch_byte_with_address(mem, addr).into(),
     }
 }
 
 // This is only ever possible with JMP, hence we just set the PC
-pub fn absolute_indirect(cpu: &mut R6502, mem: &mut Memory, mode: am_select) -> AMValue {
-    let addr = absolute(cpu, mem, am_select::A).to_addr();
+pub fn absolute_indirect(cpu: &mut R6502, mem: &mut Memory, mode: AMSelect) -> AMValue {
+    let addr = absolute(cpu, mem, AMSelect::A).to_addr();
     let next = cpu.fetch_byte_with_address(mem, addr) as u16;
     let next = next | (cpu.fetch_byte_with_address(mem, addr.wrapping_add(1)) as u16) << 8;
     match mode {
-        am_select::A => next.into(),
+        AMSelect::A => next.into(),
         _ => unreachable!(),
     }
 }
 
-pub fn zero_page(cpu: &mut R6502, mem: &mut Memory, mode: am_select) -> AMValue {
+pub fn zero_page(cpu: &mut R6502, mem: &mut Memory, mode: AMSelect) -> AMValue {
     let op = cpu.fetch_byte_with_pc(mem) as u16;
     match mode {
-        am_select::A => op.into(),
-        am_select::V => cpu.fetch_byte_with_address(mem, op).into(),
+        AMSelect::A => op.into(),
+        AMSelect::V => cpu.fetch_byte_with_address(mem, op).into(),
     }
 }
 
-pub fn x_indexed_zero_page(cpu: &mut R6502, mem: &mut Memory, mode: am_select) -> AMValue {
+pub fn x_indexed_zero_page(cpu: &mut R6502, mem: &mut Memory, mode: AMSelect) -> AMValue {
     let op = cpu.fetch_byte_with_pc(mem);
     let addr = cpu.x.wrapping_add(op) as u16;
     match mode {
-        am_select::A => addr.into(),
-        am_select::V => cpu.fetch_byte_with_address(mem, addr).into(),
+        AMSelect::A => addr.into(),
+        AMSelect::V => cpu.fetch_byte_with_address(mem, addr).into(),
     }
 }
 
-pub fn y_indexed_zero_page(cpu: &mut R6502, mem: &mut Memory, mode: am_select) -> AMValue {
+pub fn y_indexed_zero_page(cpu: &mut R6502, mem: &mut Memory, mode: AMSelect) -> AMValue {
     let op = cpu.fetch_byte_with_pc(mem);
     let addr = cpu.y.wrapping_add(op) as u16;
     match mode {
-        am_select::A => addr.into(),
-        am_select::V => cpu.fetch_byte_with_address(mem, addr).into(),
+        AMSelect::A => addr.into(),
+        AMSelect::V => cpu.fetch_byte_with_address(mem, addr).into(),
     }
 }
 
-pub fn x_indexed_zero_page_indirect(cpu: &mut R6502, mem: &mut Memory, mode: am_select) -> AMValue {
+pub fn x_indexed_zero_page_indirect(cpu: &mut R6502, mem: &mut Memory, mode: AMSelect) -> AMValue {
     let op = cpu.fetch_byte_with_pc(mem);
     let addr = cpu.x.wrapping_add(op) as u16;
     let next = cpu.fetch_byte_with_address(mem, addr) as u16;
     let next = next | (cpu.fetch_byte_with_address(mem, addr.wrapping_add(1)) as u16) << 8;
     match mode {
-        am_select::A => next.into(),
-        am_select::V => cpu.fetch_byte_with_address(mem, next).into(),
+        AMSelect::A => next.into(),
+        AMSelect::V => cpu.fetch_byte_with_address(mem, next).into(),
     }
 }
 
-pub fn zero_page_indirect_y_indexed(cpu: &mut R6502, mem: &mut Memory, mode: am_select) -> AMValue {
+pub fn zero_page_indirect_y_indexed(cpu: &mut R6502, mem: &mut Memory, mode: AMSelect) -> AMValue {
     let op = cpu.fetch_byte_with_pc(mem);
     let addr = op as u16;
     let next = cpu.fetch_byte_with_address(mem, addr) as u16;
     let next = next | (cpu.fetch_byte_with_address(mem, addr.wrapping_add(1)) as u16) << 8;
     let next = next.wrapping_add(cpu.y as u16);
     match mode {
-        am_select::A => next.into(),
-        am_select::V => cpu.fetch_byte_with_address(mem, next).into(),
+        AMSelect::A => next.into(),
+        AMSelect::V => cpu.fetch_byte_with_address(mem, next).into(),
     }
 }
 
 // XXX: this is only ever used by JMP
-pub fn relative(cpu: &mut R6502, mem: &mut Memory, mode: am_select) -> AMValue {
+pub fn relative(cpu: &mut R6502, mem: &mut Memory, mode: AMSelect) -> AMValue {
     let op = cpu.fetch_byte_with_pc(mem);
     let op = op as i8;
     // XXX I am not happy with this wild around sign/unsign casting
     let pc = cpu.pc as i32;
     let pc = pc + op as i32;
     match mode {
-        am_select::A => AMValue::from(pc as u16),
+        AMSelect::A => AMValue::from(pc as u16),
         _ => unreachable!(),
     }
 }
@@ -268,95 +262,95 @@ impl R6502 {
         }
     }
 
-    fn instr_lda(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
-        self.a = addr_mode(self, mem, am_select::V).to_value();
+    fn instr_lda(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+        self.a = addr_mode(self, mem, AMSelect::V).to_value();
         self.set_flag(status_flag::N, self.a & 0x80 != 0);
         self.set_flag(status_flag::Z, self.a == 0);
     }
 
-    fn instr_ldx(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
-        self.x = addr_mode(self, mem, am_select::V).to_value();
+    fn instr_ldx(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+        self.x = addr_mode(self, mem, AMSelect::V).to_value();
         self.set_flag(status_flag::N, self.x & 0x80 != 0);
         self.set_flag(status_flag::Z, self.x == 0);
     }
 
-    fn instr_ldy(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
-        self.y = addr_mode(self, mem, am_select::V).to_value();
+    fn instr_ldy(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+        self.y = addr_mode(self, mem, AMSelect::V).to_value();
         self.set_flag(status_flag::N, self.y & 0x80 != 0);
         self.set_flag(status_flag::Z, self.y == 0);
     }
 
-    fn instr_sta(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
-        let addr = addr_mode(self, mem, am_select::A).to_addr();
+    fn instr_sta(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+        let addr = addr_mode(self, mem, AMSelect::A).to_addr();
         self.write_byte_to_address(mem, addr, self.a);
     }
 
-    fn instr_stx(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
-        let addr = addr_mode(self, mem, am_select::A).to_addr();
+    fn instr_stx(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+        let addr = addr_mode(self, mem, AMSelect::A).to_addr();
         self.write_byte_to_address(mem, addr, self.x);
     }
 
-    fn instr_sty(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
-        let addr = addr_mode(self, mem, am_select::A).to_addr();
+    fn instr_sty(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+        let addr = addr_mode(self, mem, AMSelect::A).to_addr();
         self.write_byte_to_address(mem, addr, self.y);
     }
 
-    fn instr_tax(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_tax(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         self.x = self.a;
         self.set_flag(status_flag::N, self.x & 0x80 != 0);
         self.set_flag(status_flag::Z, self.x == 0);
     }
 
-    fn instr_tay(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_tay(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         self.y = self.a;
         self.set_flag(status_flag::N, self.y & 0x80 != 0);
         self.set_flag(status_flag::Z, self.y == 0);
     }
 
-    fn instr_tsx(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_tsx(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         self.x = self.sp;
         self.set_flag(status_flag::N, self.x & 0x80 != 0);
         self.set_flag(status_flag::Z, self.x == 0);
     }
 
-    fn instr_txa(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_txa(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         self.a = self.x;
         self.set_flag(status_flag::N, self.a & 0x80 != 0);
         self.set_flag(status_flag::Z, self.a == 0);
     }
 
-    fn instr_txs(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_txs(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         self.sp = self.x;
         self.set_flag(status_flag::N, self.sp & 0x80 != 0);
         self.set_flag(status_flag::Z, self.sp == 0);
     }
 
-    fn instr_tya(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_tya(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         self.a = self.y;
         self.set_flag(status_flag::N, self.a & 0x80 != 0);
         self.set_flag(status_flag::Z, self.a == 0);
     }
 
-    fn instr_pha(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_pha(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         self.push(mem, self.a);
     }
 
-    fn instr_php(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_php(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         self.push(mem, self.sr);
     }
 
-    fn instr_pla(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_pla(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         self.a = self.pop(mem);
         self.set_flag(status_flag::N, self.a & 0x80 != 0);
         self.set_flag(status_flag::Z, self.a == 0);
     }
 
-    fn instr_plp(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_plp(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         self.sr = self.pop(mem);
     }
 
-    fn instr_asl(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
-        let m = addr_mode(self, mem, am_select::A);
+    fn instr_asl(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+        let m = addr_mode(self, mem, AMSelect::A);
         let (o, m) = match m {
             AMValue::Accumulator => {
                 let a = self.a;
@@ -377,8 +371,8 @@ impl R6502 {
         self.set_flag(status_flag::Z, m == 0);
     }
 
-    fn instr_lsr(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
-        let m = addr_mode(self, mem, am_select::A);
+    fn instr_lsr(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+        let m = addr_mode(self, mem, AMSelect::A);
         let (o, m) = match m {
             AMValue::Accumulator => {
                 let a = self.a;
@@ -399,8 +393,8 @@ impl R6502 {
         self.set_flag(status_flag::Z, m == 0);
     }
 
-    fn instr_rol(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
-        let m = addr_mode(self, mem, am_select::A);
+    fn instr_rol(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+        let m = addr_mode(self, mem, AMSelect::A);
         let (o, m) = match m {
             AMValue::Accumulator => {
                 let a = self.a;
@@ -421,8 +415,8 @@ impl R6502 {
         self.set_flag(status_flag::Z, m == 0);
     }
 
-    fn instr_ror(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
-        let m = addr_mode(self, mem, am_select::A);
+    fn instr_ror(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+        let m = addr_mode(self, mem, AMSelect::A);
         let (o, m) = match m {
             AMValue::Accumulator => {
                 let a = self.a;
@@ -443,37 +437,37 @@ impl R6502 {
         self.set_flag(status_flag::Z, m == 0);
     }
 
-    fn instr_and(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
-        let m = addr_mode(self, mem, am_select::V).to_value();
+    fn instr_and(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+        let m = addr_mode(self, mem, AMSelect::V).to_value();
         self.a = self.a.bitand(m);
         self.set_flag(status_flag::N, self.a & 0x80 != 0);
         self.set_flag(status_flag::Z, self.a == 0);
     }
 
-    fn instr_bit(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
-        let m = addr_mode(self, mem, am_select::V).to_value();
+    fn instr_bit(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+        let m = addr_mode(self, mem, AMSelect::V).to_value();
         let a = self.a.bitand(m);
         self.set_flag(status_flag::N, m & 0x80 != 0);
         self.set_flag(status_flag::V, m & 0x40 != 0);
         self.set_flag(status_flag::Z, a == 0);
     }
 
-    fn instr_eor(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
-        let m = addr_mode(self, mem, am_select::V).to_value();
+    fn instr_eor(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+        let m = addr_mode(self, mem, AMSelect::V).to_value();
         self.a = self.a.bitxor(m);
         self.set_flag(status_flag::N, self.a & 0x80 != 0);
         self.set_flag(status_flag::Z, self.a == 0);
     }
 
-    fn instr_ora(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
-        let m = addr_mode(self, mem, am_select::V).to_value();
+    fn instr_ora(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+        let m = addr_mode(self, mem, AMSelect::V).to_value();
         self.a = self.a.bitor(m);
         self.set_flag(status_flag::N, self.a & 0x80 != 0);
         self.set_flag(status_flag::Z, self.a == 0);
     }
 
-    fn instr_adc(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
-        let m = addr_mode(self, mem, am_select::V).to_value();
+    fn instr_adc(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+        let m = addr_mode(self, mem, AMSelect::V).to_value();
         let c = self.sr & 0x1;
         if self.sr & status_flag::D == 0 {
             let a = self.a as u16 + m as u16 + c as u16;
@@ -488,37 +482,36 @@ impl R6502 {
         }
     }
 
-    fn instr_cmp(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
-        let m = addr_mode(self, mem, am_select::V).to_value();
+    fn instr_cmp(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+        let m = addr_mode(self, mem, AMSelect::V).to_value();
         let a = self.a as i16 - m as i16;
         self.set_flag(status_flag::N, a & 0x80 != 0);
         self.set_flag(status_flag::Z, a == 0);
         self.set_flag(status_flag::C, a >= 0);
     }
 
-    fn instr_cpx(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
-        let m = addr_mode(self, mem, am_select::V).to_value();
+    fn instr_cpx(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+        let m = addr_mode(self, mem, AMSelect::V).to_value();
         let a = self.x as i16 - m as i16;
         self.set_flag(status_flag::N, a & 0x80 != 0);
         self.set_flag(status_flag::Z, a == 0);
         self.set_flag(status_flag::C, a >= 0);
     }
 
-    fn instr_cpy(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
-        let m = addr_mode(self, mem, am_select::V).to_value();
+    fn instr_cpy(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+        let m = addr_mode(self, mem, AMSelect::V).to_value();
         let a = self.y as i16 - m as i16;
         self.set_flag(status_flag::N, a & 0x80 != 0);
         self.set_flag(status_flag::Z, a == 0);
         self.set_flag(status_flag::C, a >= 0);
     }
 
-    fn instr_sbc(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
-        let m = addr_mode(self, mem, am_select::V).to_value();
+    fn instr_sbc(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+        let m = addr_mode(self, mem, AMSelect::V).to_value();
         let c = self.sr & 0x1;
         let c = if c == 1 { 0 } else { 1 };
         if self.sr & status_flag::D == 0 {
             let a = self.a as i16 - m as i16 - c as i16;
-            let oa = self.a;
             self.a = a as u8;
             self.set_flag(status_flag::N, self.a & 0x80 != 0);
             self.set_flag(status_flag::Z, self.a == 0);
@@ -529,51 +522,51 @@ impl R6502 {
         }
     }
 
-    fn instr_dec(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
-        let addr = addr_mode(self, mem, am_select::A).to_addr();
+    fn instr_dec(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+        let addr = addr_mode(self, mem, AMSelect::A).to_addr();
         let m = self.fetch_byte_with_address(mem, addr).wrapping_sub(1);
         self.write_byte_to_address(mem, addr, m);
         self.set_flag(status_flag::N, m & 0x80 != 0);
         self.set_flag(status_flag::Z, m == 0);
     }
 
-    fn instr_dex(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_dex(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         self.x = self.x.wrapping_sub(1);
         self.set_flag(status_flag::N, self.x & 0x80 != 0);
         self.set_flag(status_flag::Z, self.x == 0);
     }
 
-    fn instr_dey(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_dey(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         self.y = self.y.wrapping_sub(1);
         self.set_flag(status_flag::N, self.y & 0x80 != 0);
         self.set_flag(status_flag::Z, self.y == 0);
     }
 
-    fn instr_inc(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
-        let addr = addr_mode(self, mem, am_select::A).to_addr();
+    fn instr_inc(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+        let addr = addr_mode(self, mem, AMSelect::A).to_addr();
         let m = self.fetch_byte_with_address(mem, addr).wrapping_add(1);
         self.write_byte_to_address(mem, addr, m);
         self.set_flag(status_flag::N, m & 0x80 != 0);
         self.set_flag(status_flag::Z, m == 0);
     }
 
-    fn instr_inx(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_inx(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         self.x = self.x.wrapping_add(1);
         self.set_flag(status_flag::N, self.x & 0x80 != 0);
         self.set_flag(status_flag::Z, self.x == 0);
     }
 
-    fn instr_iny(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_iny(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         self.y = self.y.wrapping_add(1);
         self.set_flag(status_flag::N, self.y & 0x80 != 0);
         self.set_flag(status_flag::Z, self.y == 0);
     }
 
-    fn instr_jmp(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
-        self.pc = addr_mode(self, mem, am_select::A).to_addr();
+    fn instr_jmp(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
+        self.pc = addr_mode(self, mem, AMSelect::A).to_addr();
     }
 
-    fn instr_brk(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_brk(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         let sr = self.sr;
         let pc = self.pc + 2;
         self.push(mem, (pc >> 8) as u8);
@@ -584,7 +577,7 @@ impl R6502 {
         self.count += 7;
     }
 
-    fn instr_rti(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_rti(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         let sr = self.pop(mem);
         let pcl = self.pop(mem);
         let pch = self.pop(mem);
@@ -594,16 +587,16 @@ impl R6502 {
         self.count += 6;
     }
 
-    fn instr_jsr(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_jsr(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         let pc = self.pc + 2;
         self.push(mem, (pc >> 8) as u8);
         self.push(mem, (pc & 0xff) as u8);
-        let addr = addr_mode(self, mem, am_select::A).to_addr();
+        let addr = addr_mode(self, mem, AMSelect::A).to_addr();
         self.pc = addr;
         self.count += 6;
     }
 
-    fn instr_rts(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_rts(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         let pcl = self.pop(mem);
         let pch = self.pop(mem);
         let pc = pcl as u16 | (pch as u16) << 8;
@@ -611,91 +604,89 @@ impl R6502 {
         self.count += 6;
     }
 
-    fn instr_bcc(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_bcc(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         if self.sr & status_flag::C == 0 {
-            self.pc = addr_mode(self, mem, am_select::A).to_addr();
+            self.pc = addr_mode(self, mem, AMSelect::A).to_addr();
         }
     }
 
-    fn instr_bcs(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_bcs(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         if self.sr & status_flag::C != 0 {
-            self.pc = addr_mode(self, mem, am_select::A).to_addr();
+            self.pc = addr_mode(self, mem, AMSelect::A).to_addr();
         }
     }
 
-    fn instr_beq(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_beq(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         if self.sr & status_flag::Z != 0 {
-            self.pc = addr_mode(self, mem, am_select::A).to_addr();
+            self.pc = addr_mode(self, mem, AMSelect::A).to_addr();
         }
     }
 
-    fn instr_bmi(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_bmi(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         if self.sr & status_flag::N != 0 {
-            self.pc = addr_mode(self, mem, am_select::A).to_addr();
+            self.pc = addr_mode(self, mem, AMSelect::A).to_addr();
         }
     }
 
-    fn instr_bne(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_bne(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         if self.sr & status_flag::Z == 0 {
-            self.pc = addr_mode(self, mem, am_select::A).to_addr();
+            self.pc = addr_mode(self, mem, AMSelect::A).to_addr();
         }
     }
 
-    fn instr_bpl(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_bpl(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         if self.sr & status_flag::N == 0 {
-            self.pc = addr_mode(self, mem, am_select::A).to_addr();
+            self.pc = addr_mode(self, mem, AMSelect::A).to_addr();
         }
     }
 
-    fn instr_bvc(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_bvc(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         if self.sr & status_flag::V == 0 {
-            self.pc = addr_mode(self, mem, am_select::A).to_addr();
+            self.pc = addr_mode(self, mem, AMSelect::A).to_addr();
         }
     }
 
-    fn instr_bvs(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_bvs(&mut self, mem: &mut Memory, addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         if self.sr & status_flag::V != 0 {
-            self.pc = addr_mode(self, mem, am_select::A).to_addr();
+            self.pc = addr_mode(self, mem, AMSelect::A).to_addr();
         }
     }
 
-    fn instr_clc(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_clc(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         self.sr &= !status_flag::C;
     }
 
-    fn instr_cld(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_cld(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         self.sr &= !status_flag::D;
     }
 
-    fn instr_cli(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_cli(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         self.sr &= !status_flag::I;
     }
 
-    fn instr_clv(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_clv(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         self.sr &= !status_flag::V;
     }
 
-    fn instr_sec(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_sec(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         self.sr |= status_flag::C;
     }
 
-    fn instr_sed(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_sed(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         self.sr |= status_flag::D;
     }
 
-    fn instr_sei(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_sei(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
         self.sr |= status_flag::I;
     }
 
-    fn instr_nop(&mut self, mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, am_select) -> AMValue) {
+    fn instr_nop(&mut self, _mem: &mut Memory, _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue) {
     }
 
     fn execute(&mut self, mem: &mut Memory, mut count: isize) {
         while count > 0 {
             count -= 1;
             let ins = self.fetch_byte_with_pc(mem);
-
-            dbg!(self.pc, ins);
 
             match ins {
                 instr::LDA_IM => self.instr_lda(mem, immediate),
@@ -705,6 +696,7 @@ impl R6502 {
                 instr::LDA_ZP => self.instr_lda(mem, zero_page),
                 instr::LDA_XIZ => self.instr_lda(mem, x_indexed_zero_page),
                 instr::LDA_XIZI => self.instr_lda(mem, x_indexed_zero_page_indirect),
+                instr::LDA_ZIYI => self.instr_lda(mem, zero_page_indirect_y_indexed),
 
                 instr::LDX_IM => self.instr_ldx(mem, immediate),
                 instr::LDX_ABS => self.instr_ldx(mem, absolute),
@@ -876,7 +868,7 @@ impl R6502 {
 
                 instr::NOP => self.instr_nop(mem, implied),
 
-                _ => unimplemented!(format!("Unimplemented instruvtion code {:x}", ins)),
+                _ => unimplemented!(), //format!("Unimplemented instruvtion code {:x}", ins)),
             }
         }
     }
@@ -923,8 +915,6 @@ impl IndexMut<Word> for Memory {
         &mut self.memory[index as usize]
     }
 }
-
-struct Registers {}
 
 #[allow(unused)]
 mod status_flag {
@@ -997,7 +987,14 @@ fn main() {
 
     mem[0x1008] = instr::RTS;
 
-    cpu.execute(&mut mem, 1000);
+    let cycles = 100000000;
+    let s = Stopwatch::start_new();
+    cpu.execute(&mut mem, cycles);
+    let s = s.elapsed_ms();
 
-    println!("Hello, world!");
+    println!("Executed {} instructions in {}ms", cycles, s);
+
+    println!("{:#?}", cpu);
+    println!("0x2000: {:b}", mem[0x2000]);
+    println!("0x2001: {:b}", mem[0x2001]);
 }
