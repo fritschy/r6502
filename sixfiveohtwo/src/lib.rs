@@ -64,25 +64,13 @@ impl Display for Registers {
     }
 }
 
-pub trait Monitor {
-    fn read_handler(&mut self, r: &mut Registers, mem: &mut Memory, addr: u16) -> Option<u8> {
-        None
-    }
-    fn write_handler(&mut self, r: &mut Registers, mem: &mut Memory, addr: u16, val: u8) -> Option<()> {
-        None
-    }
-    fn step(&mut self, r: &mut Registers, mem: &mut Memory, instr: u8) {
-
-    }
-}
-
 pub struct R6502 {
     pub r: Registers,
 
+    pub got_irq: bool,
+
     // clock counter
     pub count: u64,
-
-    pub monitor: Option<RefCell<Box<dyn Monitor>>>,
 }
 
 impl Display for R6502 {
@@ -94,10 +82,12 @@ impl Display for R6502 {
 impl Reset for R6502 {
     fn reset(&mut self) {
         self.r.reset();
+        self.got_irq = false;
+        self.count = 0;
     }
 }
 
-fn page(addr: u16) -> u8 {
+pub fn page(addr: u16) -> u8 {
     (addr >> 8) as u8
 }
 
@@ -108,21 +98,21 @@ impl R6502 {
     // 0xfffa - 0xfffb: NMI handler
     // 0xfffc - 0xfffd: power on reset location
     // 0xfffe - 0xffff: BRK/IRQ handler
-    pub(crate) fn push(&mut self, mem: &mut Memory, v: Byte) {
-        mem[0x0100 + self.r.sp as Word] = v;
+    fn push(&mut self, mem: &mut Memory, v: Byte) {
+        self.write_byte_to_address(mem, 0x0100 + self.r.sp as u16, v);
         self.r.sp -= 1;
     }
 
-    pub(crate) fn pop(&mut self, mem: &mut Memory) -> Byte {
+    fn pop(&mut self, mem: &mut Memory) -> Byte {
         self.r.sp += 1;
-        mem[0x0100 + self.r.sp as Word]
+        self.fetch_byte_with_address(mem, 0x0100 + self.r.sp as Word)
     }
 
     pub fn new() -> Self {
         R6502 {
             r: Registers::new(),
+            got_irq: false,
             count: 0,
-            monitor: None,
         }
     }
 
@@ -134,21 +124,11 @@ impl R6502 {
 
     pub(crate) fn fetch_byte_with_address(&mut self, mem: &mut Memory, addr: u16) -> Byte {
         self.count += 1;
-        // if let Some(ref h) = &self.monitor {
-        //     if let Some(byte) = h.borrow_mut().read_handler(&mut self.r, mem, addr) {
-        //         return byte;
-        //     }
-        // }
         mem[addr]
     }
 
     pub(crate) fn write_byte_to_address(&mut self, mem: &mut Memory, addr: u16, value: u8) {
         self.count += 1;
-        // if let Some(ref h) = &self.monitor {
-        //     if let Some(_) = h.borrow_mut().write_handler(&mut self.r, mem, addr, value) {
-        //         return;
-        //     }
-        // }
         mem[addr] = value;
     }
 
@@ -163,10 +143,6 @@ impl R6502 {
         while count > 0 {
             count -= 1;
             let ins = self.fetch_byte_with_pc(mem);
-
-            // if let Some(ref h) = &self.monitor {
-            //     h.borrow_mut().step(&mut self.r, mem, ins);
-            // }
 
             use adressing_mode::*;
 
@@ -352,11 +328,18 @@ impl R6502 {
 
                 _ => unimplemented!(), //format!("Unimplemented instruvtion code {:x}", ins)),
             }
+
+            if self.got_irq {
+                // handle IRQ, disregard BRK!
+            } else if self.r.sr & status_flag::B != 0 {
+                // Handle BRK
+            }
         }
     }
 
     pub(crate) fn nmi(&mut self) {
-        unimplemented!();
+        // FIXME; this is an IRQ we have to handle?
+        self.got_irq = true;
     }
 }
 
