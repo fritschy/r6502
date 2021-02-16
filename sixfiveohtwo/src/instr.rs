@@ -9,9 +9,9 @@ pub fn lda(
     mem: &mut Memory,
     addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    cpu.a = addr_mode(cpu, mem, AMSelect::V).to_value();
-    cpu.set_flag(status_flag::N, cpu.a & 0x80 != 0);
-    cpu.set_flag(status_flag::Z, cpu.a == 0);
+    cpu.r.a = addr_mode(cpu, mem, AMSelect::V).to_value();
+    cpu.set_flag(status_flag::N, cpu.r.a & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.r.a == 0);
 }
 
 pub fn ldx(
@@ -19,9 +19,9 @@ pub fn ldx(
     mem: &mut Memory,
     addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    cpu.x = addr_mode(cpu, mem, AMSelect::V).to_value();
-    cpu.set_flag(status_flag::N, cpu.x & 0x80 != 0);
-    cpu.set_flag(status_flag::Z, cpu.x == 0);
+    cpu.r.x = addr_mode(cpu, mem, AMSelect::V).to_value();
+    cpu.set_flag(status_flag::N, cpu.r.x & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.r.x == 0);
 }
 
 pub fn ldy(
@@ -29,9 +29,9 @@ pub fn ldy(
     mem: &mut Memory,
     addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    cpu.y = addr_mode(cpu, mem, AMSelect::V).to_value();
-    cpu.set_flag(status_flag::N, cpu.y & 0x80 != 0);
-    cpu.set_flag(status_flag::Z, cpu.y == 0);
+    cpu.r.y = addr_mode(cpu, mem, AMSelect::V).to_value();
+    cpu.set_flag(status_flag::N, cpu.r.y & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.r.y == 0);
 }
 
 pub fn sta(
@@ -40,7 +40,7 @@ pub fn sta(
     addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
     let addr = addr_mode(cpu, mem, AMSelect::A).to_addr();
-    cpu.write_byte_to_address(mem, addr, cpu.a);
+    cpu.write_byte_to_address(mem, addr, cpu.r.a);
 }
 
 pub fn stx(
@@ -49,7 +49,7 @@ pub fn stx(
     addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
     let addr = addr_mode(cpu, mem, AMSelect::A).to_addr();
-    cpu.write_byte_to_address(mem, addr, cpu.x);
+    cpu.write_byte_to_address(mem, addr, cpu.r.x);
 }
 
 pub fn sty(
@@ -58,7 +58,7 @@ pub fn sty(
     addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
     let addr = addr_mode(cpu, mem, AMSelect::A).to_addr();
-    cpu.write_byte_to_address(mem, addr, cpu.y);
+    cpu.write_byte_to_address(mem, addr, cpu.r.y);
 }
 
 pub fn tax(
@@ -66,9 +66,9 @@ pub fn tax(
     _mem: &mut Memory,
     _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    cpu.x = cpu.a;
-    cpu.set_flag(status_flag::N, cpu.x & 0x80 != 0);
-    cpu.set_flag(status_flag::Z, cpu.x == 0);
+    cpu.r.x = cpu.r.a;
+    cpu.set_flag(status_flag::N, cpu.r.x & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.r.x == 0);
 }
 
 pub fn tay(
@@ -76,9 +76,9 @@ pub fn tay(
     _mem: &mut Memory,
     _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    cpu.y = cpu.a;
-    cpu.set_flag(status_flag::N, cpu.y & 0x80 != 0);
-    cpu.set_flag(status_flag::Z, cpu.y == 0);
+    cpu.r.y = cpu.r.a;
+    cpu.set_flag(status_flag::N, cpu.r.y & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.r.y == 0);
 }
 
 pub fn tsx(
@@ -86,9 +86,9 @@ pub fn tsx(
     _mem: &mut Memory,
     _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    cpu.x = cpu.sp;
-    cpu.set_flag(status_flag::N, cpu.x & 0x80 != 0);
-    cpu.set_flag(status_flag::Z, cpu.x == 0);
+    cpu.r.x = cpu.r.sp;
+    cpu.set_flag(status_flag::N, cpu.r.x & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.r.x == 0);
 }
 
 pub fn txa(
@@ -96,9 +96,9 @@ pub fn txa(
     _mem: &mut Memory,
     _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    cpu.a = cpu.x;
-    cpu.set_flag(status_flag::N, cpu.a & 0x80 != 0);
-    cpu.set_flag(status_flag::Z, cpu.a == 0);
+    cpu.r.a = cpu.r.x;
+    cpu.set_flag(status_flag::N, cpu.r.a & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.r.a == 0);
 }
 
 pub fn txs(
@@ -106,9 +106,9 @@ pub fn txs(
     _mem: &mut Memory,
     _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    cpu.sp = cpu.x;
-    cpu.set_flag(status_flag::N, cpu.sp & 0x80 != 0);
-    cpu.set_flag(status_flag::Z, cpu.sp == 0);
+    cpu.r.sp = cpu.r.x;
+    cpu.set_flag(status_flag::N, cpu.r.sp & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.r.sp == 0);
 }
 
 pub fn tya(
@@ -116,9 +116,9 @@ pub fn tya(
     _mem: &mut Memory,
     _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    cpu.a = cpu.y;
-    cpu.set_flag(status_flag::N, cpu.a & 0x80 != 0);
-    cpu.set_flag(status_flag::Z, cpu.a == 0);
+    cpu.r.a = cpu.r.y;
+    cpu.set_flag(status_flag::N, cpu.r.a & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.r.a == 0);
 }
 
 pub fn pha(
@@ -126,7 +126,7 @@ pub fn pha(
     mem: &mut Memory,
     _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    cpu.push(mem, cpu.a);
+    cpu.push(mem, cpu.r.a);
 }
 
 pub fn php(
@@ -134,7 +134,7 @@ pub fn php(
     mem: &mut Memory,
     _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    cpu.push(mem, cpu.sr);
+    cpu.push(mem, cpu.r.sr);
 }
 
 pub fn pla(
@@ -142,9 +142,9 @@ pub fn pla(
     mem: &mut Memory,
     _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    cpu.a = cpu.pop(mem);
-    cpu.set_flag(status_flag::N, cpu.a & 0x80 != 0);
-    cpu.set_flag(status_flag::Z, cpu.a == 0);
+    cpu.r.a = cpu.pop(mem);
+    cpu.set_flag(status_flag::N, cpu.r.a & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.r.a == 0);
 }
 
 pub fn plp(
@@ -152,7 +152,7 @@ pub fn plp(
     mem: &mut Memory,
     _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    cpu.sr = cpu.pop(mem);
+    cpu.r.sr = cpu.pop(mem);
 }
 
 pub fn asl(
@@ -163,9 +163,9 @@ pub fn asl(
     let m = addr_mode(cpu, mem, AMSelect::A);
     let (o, m) = match m {
         AMValue::Accumulator => {
-            let a = cpu.a;
+            let a = cpu.r.a;
             let b = a << 1;
-            cpu.a = b;
+            cpu.r.a = b;
             (a, b)
         }
         AMValue::Address(addr) => {
@@ -189,9 +189,9 @@ pub fn lsr(
     let m = addr_mode(cpu, mem, AMSelect::A);
     let (o, m) = match m {
         AMValue::Accumulator => {
-            let a = cpu.a;
+            let a = cpu.r.a;
             let b = a >> 1;
-            cpu.a = b;
+            cpu.r.a = b;
             (a, b)
         }
         AMValue::Address(addr) => {
@@ -215,9 +215,9 @@ pub fn rol(
     let m = addr_mode(cpu, mem, AMSelect::A);
     let (o, m) = match m {
         AMValue::Accumulator => {
-            let a = cpu.a;
+            let a = cpu.r.a;
             let b = a.rotate_left(1);
-            cpu.a = b;
+            cpu.r.a = b;
             (a, b)
         }
         AMValue::Address(addr) => {
@@ -241,9 +241,9 @@ pub fn ror(
     let m = addr_mode(cpu, mem, AMSelect::A);
     let (o, m) = match m {
         AMValue::Accumulator => {
-            let a = cpu.a;
+            let a = cpu.r.a;
             let b = a.rotate_right(1);
-            cpu.a = b;
+            cpu.r.a = b;
             (a, b)
         }
         AMValue::Address(addr) => {
@@ -265,9 +265,9 @@ pub fn and(
     addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
     let m = addr_mode(cpu, mem, AMSelect::V).to_value();
-    cpu.a = cpu.a.bitand(m);
-    cpu.set_flag(status_flag::N, cpu.a & 0x80 != 0);
-    cpu.set_flag(status_flag::Z, cpu.a == 0);
+    cpu.r.a = cpu.r.a.bitand(m);
+    cpu.set_flag(status_flag::N, cpu.r.a & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.r.a == 0);
 }
 
 pub fn bit(
@@ -276,7 +276,7 @@ pub fn bit(
     addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
     let m = addr_mode(cpu, mem, AMSelect::V).to_value();
-    let a = cpu.a.bitand(m);
+    let a = cpu.r.a.bitand(m);
     cpu.set_flag(status_flag::N, m & 0x80 != 0);
     cpu.set_flag(status_flag::V, m & 0x40 != 0);
     cpu.set_flag(status_flag::Z, a == 0);
@@ -288,9 +288,9 @@ pub fn eor(
     addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
     let m = addr_mode(cpu, mem, AMSelect::V).to_value();
-    cpu.a = cpu.a.bitxor(m);
-    cpu.set_flag(status_flag::N, cpu.a & 0x80 != 0);
-    cpu.set_flag(status_flag::Z, cpu.a == 0);
+    cpu.r.a = cpu.r.a.bitxor(m);
+    cpu.set_flag(status_flag::N, cpu.r.a & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.r.a == 0);
 }
 
 pub fn ora(
@@ -299,9 +299,9 @@ pub fn ora(
     addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
     let m = addr_mode(cpu, mem, AMSelect::V).to_value();
-    cpu.a = cpu.a.bitor(m);
-    cpu.set_flag(status_flag::N, cpu.a & 0x80 != 0);
-    cpu.set_flag(status_flag::Z, cpu.a == 0);
+    cpu.r.a = cpu.r.a.bitor(m);
+    cpu.set_flag(status_flag::N, cpu.r.a & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.r.a == 0);
 }
 
 pub fn adc(
@@ -310,13 +310,13 @@ pub fn adc(
     addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
     let m = addr_mode(cpu, mem, AMSelect::V).to_value();
-    let c = cpu.sr & 0x1;
-    if cpu.sr & status_flag::D == 0 {
-        let a = cpu.a as u16 + m as u16 + c as u16;
-        let oa = cpu.a;
-        cpu.a = a as u8;
-        cpu.set_flag(status_flag::N, cpu.a & 0x80 != 0);
-        cpu.set_flag(status_flag::Z, cpu.a == 0);
+    let c = cpu.r.sr & 0x1;
+    if cpu.r.sr & status_flag::D == 0 {
+        let a = cpu.r.a as u16 + m as u16 + c as u16;
+        let oa = cpu.r.a;
+        cpu.r.a = a as u8;
+        cpu.set_flag(status_flag::N, cpu.r.a & 0x80 != 0);
+        cpu.set_flag(status_flag::Z, cpu.r.a == 0);
         cpu.set_flag(status_flag::C, a & 0x100 != 0);
         cpu.set_flag(status_flag::V, oa & 0x80 != (a as u8) & 0x80);
     } else {
@@ -330,7 +330,7 @@ pub fn cmp(
     addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
     let m = addr_mode(cpu, mem, AMSelect::V).to_value();
-    let a = cpu.a as i16 - m as i16;
+    let a = cpu.r.a as i16 - m as i16;
     cpu.set_flag(status_flag::N, a & 0x80 != 0);
     cpu.set_flag(status_flag::Z, a == 0);
     cpu.set_flag(status_flag::C, a >= 0);
@@ -342,7 +342,7 @@ pub fn cpx(
     addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
     let m = addr_mode(cpu, mem, AMSelect::V).to_value();
-    let a = cpu.x as i16 - m as i16;
+    let a = cpu.r.x as i16 - m as i16;
     cpu.set_flag(status_flag::N, a & 0x80 != 0);
     cpu.set_flag(status_flag::Z, a == 0);
     cpu.set_flag(status_flag::C, a >= 0);
@@ -354,7 +354,7 @@ pub fn cpy(
     addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
     let m = addr_mode(cpu, mem, AMSelect::V).to_value();
-    let a = cpu.y as i16 - m as i16;
+    let a = cpu.r.y as i16 - m as i16;
     cpu.set_flag(status_flag::N, a & 0x80 != 0);
     cpu.set_flag(status_flag::Z, a == 0);
     cpu.set_flag(status_flag::C, a >= 0);
@@ -366,13 +366,13 @@ pub fn sbc(
     addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
     let m = addr_mode(cpu, mem, AMSelect::V).to_value();
-    let c = cpu.sr & 0x1;
+    let c = cpu.r.sr & 0x1;
     let c = if c == 1 { 0 } else { 1 };
-    if cpu.sr & status_flag::D == 0 {
-        let a = cpu.a as i16 - m as i16 - c as i16;
-        cpu.a = a as u8;
-        cpu.set_flag(status_flag::N, cpu.a & 0x80 != 0);
-        cpu.set_flag(status_flag::Z, cpu.a == 0);
+    if cpu.r.sr & status_flag::D == 0 {
+        let a = cpu.r.a as i16 - m as i16 - c as i16;
+        cpu.r.a = a as u8;
+        cpu.set_flag(status_flag::N, cpu.r.a & 0x80 != 0);
+        cpu.set_flag(status_flag::Z, cpu.r.a == 0);
         cpu.set_flag(status_flag::C, a >= 0);
         cpu.set_flag(status_flag::V, a < -127 || a > 127);
     } else {
@@ -397,9 +397,9 @@ pub fn dex(
     _mem: &mut Memory,
     _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    cpu.x = cpu.x.wrapping_sub(1);
-    cpu.set_flag(status_flag::N, cpu.x & 0x80 != 0);
-    cpu.set_flag(status_flag::Z, cpu.x == 0);
+    cpu.r.x = cpu.r.x.wrapping_sub(1);
+    cpu.set_flag(status_flag::N, cpu.r.x & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.r.x == 0);
 }
 
 pub fn dey(
@@ -407,9 +407,9 @@ pub fn dey(
     _mem: &mut Memory,
     _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    cpu.y = cpu.y.wrapping_sub(1);
-    cpu.set_flag(status_flag::N, cpu.y & 0x80 != 0);
-    cpu.set_flag(status_flag::Z, cpu.y == 0);
+    cpu.r.y = cpu.r.y.wrapping_sub(1);
+    cpu.set_flag(status_flag::N, cpu.r.y & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.r.y == 0);
 }
 
 pub fn inc(
@@ -429,9 +429,9 @@ pub fn inx(
     _mem: &mut Memory,
     _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    cpu.x = cpu.x.wrapping_add(1);
-    cpu.set_flag(status_flag::N, cpu.x & 0x80 != 0);
-    cpu.set_flag(status_flag::Z, cpu.x == 0);
+    cpu.r.x = cpu.r.x.wrapping_add(1);
+    cpu.set_flag(status_flag::N, cpu.r.x & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.r.x == 0);
 }
 
 pub fn iny(
@@ -439,9 +439,9 @@ pub fn iny(
     _mem: &mut Memory,
     _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    cpu.y = cpu.y.wrapping_add(1);
-    cpu.set_flag(status_flag::N, cpu.y & 0x80 != 0);
-    cpu.set_flag(status_flag::Z, cpu.y == 0);
+    cpu.r.y = cpu.r.y.wrapping_add(1);
+    cpu.set_flag(status_flag::N, cpu.r.y & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.r.y == 0);
 }
 
 pub fn jmp(
@@ -449,7 +449,7 @@ pub fn jmp(
     mem: &mut Memory,
     addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    cpu.pc = addr_mode(cpu, mem, AMSelect::A).to_addr();
+    cpu.r.pc = addr_mode(cpu, mem, AMSelect::A).to_addr();
 }
 
 pub fn brk(
@@ -457,13 +457,13 @@ pub fn brk(
     mem: &mut Memory,
     _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    let sr = cpu.sr;
-    let pc = cpu.pc + 2;
+    let sr = cpu.r.sr;
+    let pc = cpu.r.pc + 2;
     cpu.push(mem, (pc >> 8) as u8);
     cpu.push(mem, (pc & 0xff) as u8);
     cpu.push(mem, sr);
     cpu.set_flag(status_flag::I, true);
-    cpu.pc = 0xfffe;
+    cpu.r.pc = 0xfffe;
     cpu.count += 7;
 }
 
@@ -476,8 +476,8 @@ pub fn rti(
     let pcl = cpu.pop(mem);
     let pch = cpu.pop(mem);
     let pc = pcl as u16 | (pch as u16) << 8;
-    cpu.sr = sr & !status_flag::B;
-    cpu.pc = pc;
+    cpu.r.sr = sr & !status_flag::B;
+    cpu.r.pc = pc;
     cpu.count += 6;
 }
 
@@ -486,11 +486,11 @@ pub fn jsr(
     mem: &mut Memory,
     addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    let pc = cpu.pc + 2;
+    let pc = cpu.r.pc + 2;
     cpu.push(mem, (pc >> 8) as u8);
     cpu.push(mem, (pc & 0xff) as u8);
     let addr = addr_mode(cpu, mem, AMSelect::A).to_addr();
-    cpu.pc = addr;
+    cpu.r.pc = addr;
     cpu.count += 6;
 }
 
@@ -502,7 +502,7 @@ pub fn rts(
     let pcl = cpu.pop(mem);
     let pch = cpu.pop(mem);
     let pc = pcl as u16 | (pch as u16) << 8;
-    cpu.pc = pc;
+    cpu.r.pc = pc;
     cpu.count += 6;
 }
 
@@ -511,8 +511,8 @@ pub fn bcc(
     mem: &mut Memory,
     addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    if cpu.sr & status_flag::C == 0 {
-        cpu.pc = addr_mode(cpu, mem, AMSelect::A).to_addr();
+    if cpu.r.sr & status_flag::C == 0 {
+        cpu.r.pc = addr_mode(cpu, mem, AMSelect::A).to_addr();
     }
 }
 
@@ -521,8 +521,8 @@ pub fn bcs(
     mem: &mut Memory,
     addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    if cpu.sr & status_flag::C != 0 {
-        cpu.pc = addr_mode(cpu, mem, AMSelect::A).to_addr();
+    if cpu.r.sr & status_flag::C != 0 {
+        cpu.r.pc = addr_mode(cpu, mem, AMSelect::A).to_addr();
     }
 }
 
@@ -531,8 +531,8 @@ pub fn beq(
     mem: &mut Memory,
     addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    if cpu.sr & status_flag::Z != 0 {
-        cpu.pc = addr_mode(cpu, mem, AMSelect::A).to_addr();
+    if cpu.r.sr & status_flag::Z != 0 {
+        cpu.r.pc = addr_mode(cpu, mem, AMSelect::A).to_addr();
     }
 }
 
@@ -541,8 +541,8 @@ pub fn bmi(
     mem: &mut Memory,
     addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    if cpu.sr & status_flag::N != 0 {
-        cpu.pc = addr_mode(cpu, mem, AMSelect::A).to_addr();
+    if cpu.r.sr & status_flag::N != 0 {
+        cpu.r.pc = addr_mode(cpu, mem, AMSelect::A).to_addr();
     }
 }
 
@@ -551,8 +551,8 @@ pub fn bne(
     mem: &mut Memory,
     addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    if cpu.sr & status_flag::Z == 0 {
-        cpu.pc = addr_mode(cpu, mem, AMSelect::A).to_addr();
+    if cpu.r.sr & status_flag::Z == 0 {
+        cpu.r.pc = addr_mode(cpu, mem, AMSelect::A).to_addr();
     }
 }
 
@@ -561,8 +561,8 @@ pub fn bpl(
     mem: &mut Memory,
     addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    if cpu.sr & status_flag::N == 0 {
-        cpu.pc = addr_mode(cpu, mem, AMSelect::A).to_addr();
+    if cpu.r.sr & status_flag::N == 0 {
+        cpu.r.pc = addr_mode(cpu, mem, AMSelect::A).to_addr();
     }
 }
 
@@ -571,8 +571,8 @@ pub fn bvc(
     mem: &mut Memory,
     addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    if cpu.sr & status_flag::V == 0 {
-        cpu.pc = addr_mode(cpu, mem, AMSelect::A).to_addr();
+    if cpu.r.sr & status_flag::V == 0 {
+        cpu.r.pc = addr_mode(cpu, mem, AMSelect::A).to_addr();
     }
 }
 
@@ -581,8 +581,8 @@ pub fn bvs(
     mem: &mut Memory,
     addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    if cpu.sr & status_flag::V != 0 {
-        cpu.pc = addr_mode(cpu, mem, AMSelect::A).to_addr();
+    if cpu.r.sr & status_flag::V != 0 {
+        cpu.r.pc = addr_mode(cpu, mem, AMSelect::A).to_addr();
     }
 }
 
@@ -591,7 +591,7 @@ pub fn clc(
     _mem: &mut Memory,
     _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    cpu.sr &= !status_flag::C;
+    cpu.r.sr &= !status_flag::C;
 }
 
 pub fn cld(
@@ -599,7 +599,7 @@ pub fn cld(
     _mem: &mut Memory,
     _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    cpu.sr &= !status_flag::D;
+    cpu.r.sr &= !status_flag::D;
 }
 
 pub fn cli(
@@ -607,7 +607,7 @@ pub fn cli(
     _mem: &mut Memory,
     _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    cpu.sr &= !status_flag::I;
+    cpu.r.sr &= !status_flag::I;
 }
 
 pub fn clv(
@@ -615,7 +615,7 @@ pub fn clv(
     _mem: &mut Memory,
     _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    cpu.sr &= !status_flag::V;
+    cpu.r.sr &= !status_flag::V;
 }
 
 pub fn sec(
@@ -623,7 +623,7 @@ pub fn sec(
     _mem: &mut Memory,
     _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    cpu.sr |= status_flag::C;
+    cpu.r.sr |= status_flag::C;
 }
 
 pub fn sed(
@@ -631,7 +631,7 @@ pub fn sed(
     _mem: &mut Memory,
     _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    cpu.sr |= status_flag::D;
+    cpu.r.sr |= status_flag::D;
 }
 
 pub fn sei(
@@ -639,7 +639,7 @@ pub fn sei(
     _mem: &mut Memory,
     _addr_mode: impl Fn(&mut R6502, &mut Memory, AMSelect) -> AMValue,
 ) {
-    cpu.sr |= status_flag::I;
+    cpu.r.sr |= status_flag::I;
 }
 
 pub fn nop(

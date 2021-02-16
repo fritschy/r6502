@@ -1,13 +1,34 @@
 use stopwatch::Stopwatch;
 
-use sixfiveohtwo::{opcode, Memory, Reset, R6502};
+use std::cell::RefCell;
+
+use sixfiveohtwo::{opcode, Memory, Reset, R6502, Monitor, Registers};
+
+struct MyMonitor;
+
+impl Monitor for MyMonitor {
+    fn read_handler(&mut self, r: &mut Registers, mem: &mut Memory, addr: u16) -> Option<u8> {
+        // let res = mem[addr];
+        // eprintln!("R 0x{:04x} -> 0x{:02x}", addr, res);
+        None
+    }
+    fn write_handler(&mut self, r: &mut Registers, mem: &mut Memory, addr: u16, val: u8) -> Option<()> {
+        // eprintln!("W 0x{:04x} <- 0x{:02x}", addr, val);
+        None
+    }
+    fn step(&mut self, r: &mut Registers, mem: &mut Memory, instr: u8) {
+        // eprintln!("I {:02x}", instr);
+    }
+}
 
 fn main() {
     let mut cpu = R6502::new();
     let mut mem = Memory::new();
 
     cpu.reset();
-    cpu.pc = 0x200;
+    cpu.r.pc = 0x200;
+
+    //cpu.monitor = Some(RefCell::new(Box::new(MyMonitor)));
 
     // Load 0x42 to A
     mem[0x200] = opcode::LDA_IM;

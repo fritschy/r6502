@@ -1,5 +1,6 @@
 use std::ops::{Index, IndexMut};
 use std::fmt::{Display, Formatter};
+use std::cell::RefCell;
 
 type Byte = u8;
 type Word = u16;
@@ -12,7 +13,8 @@ pub trait Reset {
     fn reset(&mut self);
 }
 
-pub struct R6502 {
+#[derive(Eq, PartialEq)]
+pub struct Registers {
     pub pc: Word,
 
     pub sp: Byte,
@@ -21,31 +23,31 @@ pub struct R6502 {
     pub x: Byte,
     pub y: Byte,
 
-    // Processor Status
-    // CF : Carry Flag
-    // Z: Zero FLag
-    // ID: Interrupt Disable
-    // DM: Decimal Mode
-    // BC: Break Command
-    // OF: Overflow Flag
-    // NF: Negative Flag
+    // Processor Status Bits, from low to high
+    // C: Carry
+    // Z: Zero
+    // I: Interrupt Disable
+    // D: Decimal Mode
+    // B: Break
+    // V: Overflow
+    // N: Negative
     pub sr: Byte,
-
-    // clock counter
-    pub count: u64,
-
-    // allow read and write to memory addresses to be hooked
-    pub read_hook: Option<Box<dyn Fn(&mut R6502, &Memory, u16) -> Option<u8>>>,
-    pub write_hook: Option<Box<dyn Fn(&mut R6502, &mut Memory, u16, u8) -> bool>>,
 }
 
-impl Display for R6502 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "R6502: A:{:02x}, X:{:02x}, Y:{:02x}, SP:{:04x}, PC:{:04x}, SR:{:08b}", self.a, self.x, self.y, self.sp, self.pc, self.sr)
+impl Registers {
+    fn new() -> Self {
+        Registers {
+            pc: 0,
+            sp: 0,
+            a: 0,
+            x: 0,
+            y: 0,
+            sr: 0
+        }
     }
 }
 
-impl Reset for R6502 {
+impl Reset for Registers {
     fn reset(&mut self) {
         self.pc = 0xfffc;
         self.sp = 0xff; // 0x100 - the 1 is implied
@@ -53,6 +55,45 @@ impl Reset for R6502 {
         self.x = 0;
         self.y = 0;
         self.sr = self.sr & !status_flag::D;
+    }
+}
+
+impl Display for Registers {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "A:{:02x}, X:{:02x}, Y:{:02x}, SP:{:04x}, PC:{:04x}, SR:{:08b}", self.a, self.x, self.y, self.sp, self.pc, self.sr)
+    }
+}
+
+pub trait Monitor {
+    fn read_handler(&mut self, r: &mut Registers, mem: &mut Memory, addr: u16) -> Option<u8> {
+        None
+    }
+    fn write_handler(&mut self, r: &mut Registers, mem: &mut Memory, addr: u16, val: u8) -> Option<()> {
+        None
+    }
+    fn step(&mut self, r: &mut Registers, mem: &mut Memory, instr: u8) {
+
+    }
+}
+
+pub struct R6502 {
+    pub r: Registers,
+
+    // clock counter
+    pub count: u64,
+
+    pub monitor: Option<RefCell<Box<dyn Monitor>>>,
+}
+
+impl Display for R6502 {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "R6502: {}", self.r)
+    }
+}
+
+impl Reset for R6502 {
+    fn reset(&mut self) {
+        self.r.reset();
     }
 }
 
@@ -68,63 +109,53 @@ impl R6502 {
     // 0xfffc - 0xfffd: power on reset location
     // 0xfffe - 0xffff: BRK/IRQ handler
     pub(crate) fn push(&mut self, mem: &mut Memory, v: Byte) {
-        mem[0x0100 + self.sp as Word] = v;
-        self.sp -= 1;
+        mem[0x0100 + self.r.sp as Word] = v;
+        self.r.sp -= 1;
     }
 
     pub(crate) fn pop(&mut self, mem: &mut Memory) -> Byte {
-        self.sp += 1;
-        mem[0x0100 + self.sp as Word]
+        self.r.sp += 1;
+        mem[0x0100 + self.r.sp as Word]
     }
 
     pub fn new() -> Self {
         R6502 {
-            pc: 0,
-            sp: 0,
-            a: 0,
-            x: 0,
-            y: 0,
-            sr: 0,
+            r: Registers::new(),
             count: 0,
-            write_hook: None,
-            read_hook: None,
+            monitor: None,
         }
-    }
-
-    fn read_handler(&mut self, mem: &Memory, addr: u16) -> Option<u8> {
-        None
-    }
-
-    fn write_handler(&mut self, mem: &mut Memory, addr: u16, val: u8) -> bool {
-        false
     }
 
     pub(crate) fn fetch_byte_with_pc(&mut self, mem: &mut Memory) -> Byte {
-        let b = self.fetch_byte_with_address(mem, self.pc);
-        self.pc += 1;
+        let b = self.fetch_byte_with_address(mem, self.r.pc);
+        self.r.pc += 1;
         b
     }
 
-    pub(crate) fn fetch_byte_with_address(&mut self, mem: &Memory, addr: u16) -> Byte {
+    pub(crate) fn fetch_byte_with_address(&mut self, mem: &mut Memory, addr: u16) -> Byte {
         self.count += 1;
-        if let Some(byte) = self.read_handler(mem, addr) {
-            byte
-        } else {
-            mem[addr]
-        }
+        // if let Some(ref h) = &self.monitor {
+        //     if let Some(byte) = h.borrow_mut().read_handler(&mut self.r, mem, addr) {
+        //         return byte;
+        //     }
+        // }
+        mem[addr]
     }
 
     pub(crate) fn write_byte_to_address(&mut self, mem: &mut Memory, addr: u16, value: u8) {
         self.count += 1;
-        if let false = self.write_handler(mem, addr, value) {
-            mem[addr] = value;
-        }
+        // if let Some(ref h) = &self.monitor {
+        //     if let Some(_) = h.borrow_mut().write_handler(&mut self.r, mem, addr, value) {
+        //         return;
+        //     }
+        // }
+        mem[addr] = value;
     }
 
     pub(crate) fn set_flag(&mut self, flag: Byte, val: bool) {
         match val {
-            true => self.sr |= flag,
-            false => self.sr &= !(flag | status_flag::UNUSED),
+            true => self.r.sr |= flag,
+            false => self.r.sr &= !(flag | status_flag::UNUSED),
         }
     }
 
@@ -132,6 +163,10 @@ impl R6502 {
         while count > 0 {
             count -= 1;
             let ins = self.fetch_byte_with_pc(mem);
+
+            // if let Some(ref h) = &self.monitor {
+            //     h.borrow_mut().step(&mut self.r, mem, ins);
+            // }
 
             use adressing_mode::*;
 
