@@ -2,7 +2,9 @@ use std::ops::{Index, IndexMut};
 
 use stopwatch::Stopwatch;
 
-use sixfiveohtwo::{opcode, Reset, R6502, SimpleMemory, Memory};
+use sixfiveohtwo::{opcode, Reset, R6502, SimpleMemory, Memory, Registers};
+use std::io::{Read, Write};
+use std::any::Any;
 
 struct Apple1BasicMem {
     mem: SimpleMemory,
@@ -23,22 +25,98 @@ impl IndexMut<u16> for Apple1BasicMem {
 }
 
 impl Memory for Apple1BasicMem {
-    fn read_byte(&mut self, addr: u16) -> u8 {
-        let res = self.mem.read_byte(addr);
-        println!("R: 0x{:04x} -> 0x{:02x}", addr, res);
-        res
+    fn read_byte(&mut self, regs: &mut Registers, addr: u16) -> u8 {
+        match addr & 0xFF1F {
+            0xD010 => {
+                let mut b = &mut [0u8][..];
+                std::io::stdin().lock().read_exact(&mut b).expect("read from stdin");
+                let c = if b[0] == 10 { 13 } else { b[0] };
+                return c | 0x80;
+            }
+
+            0xD011 => {
+                if regs.pc == 0xE006 { // READ
+                    return 0x80;
+                } else {
+                    return 0;
+                }
+            }
+
+            0xD012 => {
+                return 0;
+            }
+
+            _ => self.mem.read_byte(regs, addr)
+        }
     }
 
-    fn write_byte(&mut self, addr: u16, value: u8) {
-        println!("W: 0x{:04x} <- 0x{:02x}", addr, value);
-        self.mem.write_byte(addr, value)
+    fn write_byte(&mut self, regs: &mut Registers, addr: u16, value: u8) {
+        if addr & 0xFF1F == 0xD012 {
+            let value = value & 0x7f;
+            let value = if value == 13 { 10 } else { value };
+
+            // charout
+            let ch = value;
+
+            let s = regs.sp;
+            let a = 1 + (self.mem[0x0100 + s as u16 + 1] as u16) | (self.mem[0x1000 + ((s as u16 + 2) & 0xff)] as u16) << 8;
+
+            /*
+             * Apple I BASIC prints every character received
+             * from the terminal. UNIX terminals do this
+             * anyway, so we have to avoid printing every
+             * line again
+             */
+            if a == 0xe2a6 {
+                /* character echo */
+                return;
+            }
+            if a == 0xe2b6 {
+                /* CR echo */
+                return;
+            }
+
+            /*
+             * Apple I BASIC prints a line break and 6 spaces
+             * after every 37 characters. UNIX terminals do
+             * line breaks themselves, so ignore these
+             * characters
+             */
+            if a==0xe025 && (ch==10 || ch==b' ') {
+                return;
+            }
+
+            if a == 0xe182 {  // INPUT
+                // FIXME: return if stdin is not a tty
+            }
+
+            print!("{}", ch as char);
+            let chb = [ch];
+            std::io::stdout().write(&chb[..]);
+            std::io::stdout().flush();
+
+            return;
+        }
+
+        self.mem.write_byte(regs, addr, value)
     }
 }
 
+static APPLE_1_BASIC: &[u8; 4096] = include_bytes!("../apple1basic.bin");
+
 impl Apple1BasicMem {
     fn new() -> Self {
+        let mut mem = SimpleMemory::new();
+
+        for (i, b) in APPLE_1_BASIC.iter().enumerate() {
+            mem[(i + 0xE000) as u16] = *b;
+        }
+
+        mem[0xFFFC] = 0x00;
+        mem[0xFFFD] = 0xE0;
+
         Apple1BasicMem {
-            mem: SimpleMemory::new()
+            mem,
         }
     }
 }
@@ -46,45 +124,11 @@ impl Apple1BasicMem {
 fn main() {
     let mut mem = Apple1BasicMem::new();
 
-    // Load 0x42 to A
-    mem[0x200] = opcode::LDA_IM;
-    mem[0x201] = 0x42;
-
-    // Load (0x0201) to X  (0x42)
-    mem[0x202] = opcode::LDX_ABS;
-    mem[0x203] = 0x01;
-    mem[0x204] = 0x02;
-
-    // get_0x11()
-    mem[0x205] = opcode::JSR_ABS;
-    mem[0x206] = 0x00;
-    mem[0x207] = 0x10;
-
-    // JMP 0x0200
-    mem[0x208] = opcode::JMP_ABS;
-    mem[0x209] = 0x00;
-    mem[0x20a] = 0x02;
-
-    // Small subroutine: get_0x11()
-    mem[0x1000] = opcode::LDA_IM;
-    mem[0x1001] = 0x11;
-
-    mem[0x1002] = opcode::ROL_ABS;
-    mem[0x1003] = 0x0;
-    mem[0x1004] = 0x20;
-    mem[0x2000] = 0b10100101;
-
-    mem[0x1005] = opcode::ROR_ABS;
-    mem[0x1006] = 0x1;
-    mem[0x1007] = 0x20;
-    mem[0x2001] = 0b11100000;
-
-    mem[0x1008] = opcode::RTS;
-
     let mut cpu = R6502::new(mem);
-
     cpu.reset();
-    cpu.r.pc = 0x200;
+
+    // FIXME; I have no clue how to implement reset vector handling... so... fake it?
+    cpu.r.pc = 0xe000;
 
     let cycles = 100000000;
     let s = Stopwatch::start_new();

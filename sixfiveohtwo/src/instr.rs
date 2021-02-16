@@ -1,4 +1,4 @@
-use crate::{status_flag, Memory, Reset, R6502};
+use crate::{status_flag, Memory, R6502};
 
 use crate::adressing_mode::{AMSelect, AMValue};
 

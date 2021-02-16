@@ -1,4 +1,4 @@
-use crate::{Memory, Reset, R6502};
+use crate::{Memory, R6502};
 
 pub enum AMValue {
     Address(u16),

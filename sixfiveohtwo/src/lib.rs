@@ -9,7 +9,7 @@ pub trait Reset {
     fn reset(&mut self);
 }
 
-#[derive(Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct Registers {
     pub pc: u16,
 
@@ -89,8 +89,8 @@ pub fn page(addr: u16) -> u8 {
 }
 
 pub trait Memory {
-    fn read_byte(&mut self, addr: u16) -> u8;
-    fn write_byte(&mut self, addr: u16, value: u8);
+    fn read_byte(&mut self, regs: &mut Registers, addr: u16) -> u8;
+    fn write_byte(&mut self, regs: &mut Registers, addr: u16, value: u8);
 }
 
 impl<M: Memory> R6502<M> {
@@ -112,12 +112,12 @@ impl<M: Memory> R6502<M> {
 
     pub fn read_byte(&mut self, addr: u16) -> u8 {
         self.count += 1;
-        self.mem.read_byte(addr)
+        self.mem.read_byte(&mut self.r, addr)
     }
 
     pub fn write_byte(&mut self, addr: u16, val: u8) {
         self.count += 1;
-        self.mem.write_byte(addr, val)
+        self.mem.write_byte(&mut self.r, addr, val)
     }
 
     pub fn new(mem: M) -> Self {
@@ -146,6 +146,8 @@ impl<M: Memory> R6502<M> {
         while count > 0 {
             count -= 1;
             let ins = self.fetch_byte_with_pc();
+
+            dbg!(self.count, &self.r, ins);
 
             use adressing_mode::*;
 
@@ -379,11 +381,11 @@ impl IndexMut<u16> for SimpleMemory {
 }
 
 impl Memory for SimpleMemory {
-    fn read_byte(&mut self, addr: u16) -> u8 {
+    fn read_byte(&mut self, _regs: &mut Registers, addr: u16) -> u8 {
         self.memory[addr as usize]
     }
 
-    fn write_byte(&mut self, addr: u16, value: u8) {
+    fn write_byte(&mut self, _regs: &mut Registers, addr: u16, value: u8) {
         self.memory[addr as usize] = value;
     }
 }
