@@ -1,13 +1,50 @@
+use std::ops::{Index, IndexMut};
+
 use stopwatch::Stopwatch;
 
-use sixfiveohtwo::{opcode, Memory, Reset, R6502, Registers};
+use sixfiveohtwo::{opcode, Reset, R6502, SimpleMemory, Memory};
+
+struct Apple1BasicMem {
+    mem: SimpleMemory,
+}
+
+impl Index<u16> for Apple1BasicMem {
+    type Output = u8;
+
+    fn index(&self, index: u16) -> &Self::Output {
+        &self.mem[index]
+    }
+}
+
+impl IndexMut<u16> for Apple1BasicMem {
+    fn index_mut(&mut self, index: u16) -> &mut Self::Output {
+        &mut self.mem[index]
+    }
+}
+
+impl Memory for Apple1BasicMem {
+    fn read_byte(&mut self, addr: u16) -> u8 {
+        let res = self.mem.read_byte(addr);
+        println!("R: 0x{:04x} -> 0x{:02x}", addr, res);
+        res
+    }
+
+    fn write_byte(&mut self, addr: u16, value: u8) {
+        println!("W: 0x{:04x} <- 0x{:02x}", addr, value);
+        self.mem.write_byte(addr, value)
+    }
+}
+
+impl Apple1BasicMem {
+    fn new() -> Self {
+        Apple1BasicMem {
+            mem: SimpleMemory::new()
+        }
+    }
+}
 
 fn main() {
-    let mut cpu = R6502::new();
-    let mut mem = Memory::new();
-
-    cpu.reset();
-    cpu.r.pc = 0x200;
+    let mut mem = Apple1BasicMem::new();
 
     // Load 0x42 to A
     mem[0x200] = opcode::LDA_IM;
@@ -44,14 +81,17 @@ fn main() {
 
     mem[0x1008] = opcode::RTS;
 
+    let mut cpu = R6502::new(mem);
+
+    cpu.reset();
+    cpu.r.pc = 0x200;
+
     let cycles = 100000000;
     let s = Stopwatch::start_new();
-    cpu.execute(&mut mem, cycles);
+    cpu.execute(cycles);
     let s = s.elapsed_ms();
 
     println!("Executed {} instructions in {}ms", cycles, s);
 
     println!("{}", cpu);
-    println!("0x2000: {:b}", mem[0x2000]);
-    println!("0x2001: {:b}", mem[0x2001]);
 }
