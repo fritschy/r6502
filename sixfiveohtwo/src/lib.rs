@@ -158,6 +158,8 @@ impl<M: Memory> R6502<M> {
             count -= 1;
             let ins = self.fetch_byte_with_pc();
 
+            eprintln!("instr 0x{:02x}, {}", ins, self);
+
             use adressing_mode::*;
 
             match ins {
