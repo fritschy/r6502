@@ -454,7 +454,8 @@ pub fn rti<M: Memory>(
     let pcl = cpu.pop();
     let pch = cpu.pop();
     let pc = pcl as u16 | (pch as u16) << 8;
-    cpu.r.sr = sr & !status_flag::B;
+    cpu.r.sr = sr;
+    cpu.set_flag(status_flag::B, false);
     cpu.r.pc = pc;
     cpu.count += 6;
 }
@@ -486,7 +487,7 @@ pub fn bcc<M: Memory>(
     cpu: &mut R6502<M>,
     addr_mode: impl Fn(&mut R6502<M>, AMSelect) -> AMValue,
 ) {
-    if cpu.r.sr & status_flag::C == 0 {
+    if cpu.get_flag(status_flag::C) == 0 {
         cpu.r.pc = addr_mode(cpu, AMSelect::A).to_addr();
     }
 }
@@ -495,7 +496,7 @@ pub fn bcs<M: Memory>(
     cpu: &mut R6502<M>,
     addr_mode: impl Fn(&mut R6502<M>, AMSelect) -> AMValue,
 ) {
-    if cpu.r.sr & status_flag::C != 0 {
+    if cpu.get_flag(status_flag::C) == 1 {
         cpu.r.pc = addr_mode(cpu, AMSelect::A).to_addr();
     }
 }
@@ -504,7 +505,7 @@ pub fn beq<M: Memory>(
     cpu: &mut R6502<M>,
     addr_mode: impl Fn(&mut R6502<M>, AMSelect) -> AMValue,
 ) {
-    if cpu.r.sr & status_flag::Z != 0 {
+    if cpu.get_flag(status_flag::Z) == 1 {
         cpu.r.pc = addr_mode(cpu, AMSelect::A).to_addr();
     }
 }
@@ -522,7 +523,7 @@ pub fn bne<M: Memory>(
     cpu: &mut R6502<M>,
     addr_mode: impl Fn(&mut R6502<M>, AMSelect) -> AMValue,
 ) {
-    if cpu.r.sr & status_flag::Z == 0 {
+    if cpu.get_flag(status_flag::N) == 1 {
         cpu.r.pc = addr_mode(cpu, AMSelect::A).to_addr();
     }
 }
@@ -531,7 +532,7 @@ pub fn bpl<M: Memory>(
     cpu: &mut R6502<M>,
     addr_mode: impl Fn(&mut R6502<M>, AMSelect) -> AMValue,
 ) {
-    if cpu.r.sr & status_flag::N == 0 {
+    if cpu.get_flag(status_flag::N) == 0 {
         cpu.r.pc = addr_mode(cpu, AMSelect::A).to_addr();
     }
 }
@@ -540,7 +541,7 @@ pub fn bvc<M: Memory>(
     cpu: &mut R6502<M>,
     addr_mode: impl Fn(&mut R6502<M>, AMSelect) -> AMValue,
 ) {
-    if cpu.r.sr & status_flag::V == 0 {
+    if cpu.get_flag(status_flag::V) == 0 {
         cpu.r.pc = addr_mode(cpu, AMSelect::A).to_addr();
     }
 }
@@ -549,7 +550,7 @@ pub fn bvs<M: Memory>(
     cpu: &mut R6502<M>,
     addr_mode: impl Fn(&mut R6502<M>, AMSelect) -> AMValue,
 ) {
-    if cpu.r.sr & status_flag::V != 0 {
+    if cpu.get_flag(status_flag::V) == 1 {
         cpu.r.pc = addr_mode(cpu, AMSelect::A).to_addr();
     }
 }
@@ -558,49 +559,49 @@ pub fn clc<M: Memory>(
     cpu: &mut R6502<M>,
     _addr_mode: impl Fn(&mut R6502<M>, AMSelect) -> AMValue,
 ) {
-    cpu.r.sr &= !status_flag::C;
+    cpu.set_flag(status_flag::C, false);
 }
 
 pub fn cld<M: Memory>(
     cpu: &mut R6502<M>,
     _addr_mode: impl Fn(&mut R6502<M>, AMSelect) -> AMValue,
 ) {
-    cpu.r.sr &= !status_flag::D;
+    cpu.set_flag(status_flag::D, false);
 }
 
 pub fn cli<M: Memory>(
     cpu: &mut R6502<M>,
     _addr_mode: impl Fn(&mut R6502<M>, AMSelect) -> AMValue,
 ) {
-    cpu.r.sr &= !status_flag::I;
+    cpu.set_flag(status_flag::I, false);
 }
 
 pub fn clv<M: Memory>(
     cpu: &mut R6502<M>,
     _addr_mode: impl Fn(&mut R6502<M>, AMSelect) -> AMValue,
 ) {
-    cpu.r.sr &= !status_flag::V;
+    cpu.set_flag(status_flag::V, false);
 }
 
 pub fn sec<M: Memory>(
     cpu: &mut R6502<M>,
     _addr_mode: impl Fn(&mut R6502<M>, AMSelect) -> AMValue,
 ) {
-    cpu.r.sr |= status_flag::C;
+    cpu.set_flag(status_flag::C, true);
 }
 
 pub fn sed<M: Memory>(
     cpu: &mut R6502<M>,
     _addr_mode: impl Fn(&mut R6502<M>, AMSelect) -> AMValue,
 ) {
-    cpu.r.sr |= status_flag::D;
+    cpu.set_flag(status_flag::D, true);
 }
 
 pub fn sei<M: Memory>(
     cpu: &mut R6502<M>,
     _addr_mode: impl Fn(&mut R6502<M>, AMSelect) -> AMValue,
 ) {
-    cpu.r.sr |= status_flag::I;
+    cpu.set_flag(status_flag::I, true);
 }
 
 pub fn nop<M: Memory>(
