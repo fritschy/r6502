@@ -128,7 +128,7 @@ fn main() {
     cpu.reset();
 
     // FIXME; I have no clue how to implement reset vector handling... so... fake it?
-    cpu.r.pc = 0xe000;
+    cpu.r.pc = cpu.read_byte(0xfffc) as u16 | (cpu.read_byte(0xfffd) as u16) << 8;
 
     let cycles = 100000000;
     let s = Stopwatch::start_new();
