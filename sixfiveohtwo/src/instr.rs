@@ -433,12 +433,16 @@ pub fn brk<M: Memory>(
     }
 
     let sr = cpu.r.sr;
-    let pc = cpu.r.pc + 2;
+    let pc = cpu.r.pc.wrapping_add(2);
     cpu.push((pc >> 8) as u8);
     cpu.push((pc & 0xff) as u8);
     cpu.push(sr);
     cpu.set_flag(status_flag::I, true);
-    cpu.r.pc = 0xfffe;
+    // load PC
+    let pcl = cpu.read_byte(0xfffe);
+    let pch = cpu.read_byte(0xffff);
+    cpu.r.pc = (pcl as u16);
+    cpu.r.pc |= (pch as u16) << 8;
     cpu.count += 7;
 }
 
