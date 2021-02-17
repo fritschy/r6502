@@ -479,7 +479,7 @@ pub fn rts<M: Memory>(
     let pcl = cpu.pop();
     let pch = cpu.pop();
     let pc = pcl as u16 | (pch as u16) << 8;
-    cpu.r.pc = pc;
+    cpu.r.pc = pc + 1;
     cpu.count += 6;
 }
 
