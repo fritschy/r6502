@@ -377,13 +377,13 @@ impl<M: Memory> R6502<M> {
 // 0xfffc - 0xfffd: power on reset location
 // 0xfffe - 0xffff: BRK/IRQ handler
 pub struct SimpleMemory {
-    memory: [u8; 0xffff],
+    memory: [u8; 0x10000],
 }
 
 impl SimpleMemory {
     pub fn new() -> Self {
         SimpleMemory {
-            memory: [0u8; 0xffff],
+            memory: [0u8; 0x10000],
         }
     }
 }
