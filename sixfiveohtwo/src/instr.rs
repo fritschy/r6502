@@ -425,6 +425,10 @@ pub fn brk<M: Memory>(
     cpu: &mut R6502<M>,
     _addr_mode: impl Fn(&mut R6502<M>, AMSelect) -> AMValue,
 ) {
+    if cpu.got_irq {
+        return;
+    }
+
     let sr = cpu.r.sr;
     let pc = cpu.r.pc + 2;
     cpu.push((pc >> 8) as u8);

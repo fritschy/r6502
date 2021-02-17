@@ -347,11 +347,8 @@ impl<M: Memory> R6502<M> {
             }
 
             if self.got_irq {
-                // handle IRQ, disregard BRK!
-            } else if self.r.sr & status_flag::B != 0 {
-                eprintln!("BRK! {}", self);
                 self.r.pc = 0xfffe;
-                // Handle BRK
+                self.got_irq = false;
             }
         }
     }
