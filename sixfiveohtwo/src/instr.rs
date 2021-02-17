@@ -592,3 +592,52 @@ pub fn nop<M: Memory>(
     _addr_mode: impl Fn(&mut R6502<M>, AMSelect) -> AMValue,
 ) {
 }
+
+// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+// Undocumented instructions
+// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+// https://www.pagetable.com/c64ref/6502/?tab=2#ISC
+pub fn isc<M: Memory>(
+    cpu: &mut R6502<M>,
+    addr_mode: impl Fn(&mut R6502<M>, AMSelect) -> AMValue,
+) {
+    let ma = addr_mode(cpu, AMSelect::A).to_addr();
+    let m = cpu.read_byte(ma);
+    let (m, ov) = m.overflowing_add(1);
+    cpu.write_byte(ma, m);
+    let b = if ov { 1 } else { 0 };
+    let a = cpu.r.a as i16 - m as i16 - b as i16;
+    cpu.r.a = a as u8;
+    cpu.set_flag(status_flag::N, a < 0);
+    cpu.set_flag(status_flag::Z, a == 0);
+    cpu.set_flag(status_flag::V, a > 127 || a < -127);
+    cpu.set_flag(status_flag::C, a >= 0);
+}
+
+// https://www.pagetable.com/c64ref/6502/?tab=2#RRA
+pub fn rra<M: Memory>(
+    cpu: &mut R6502<M>,
+    addr_mode: impl Fn(&mut R6502<M>, AMSelect) -> AMValue,
+) {
+    let m = addr_mode(cpu, AMSelect::V).to_value();
+    let c = m & 0x1;
+    let m = m >> 1;
+    let m = (m & 0x7f) | (if cpu.r.sr & status_flag::C != 0 { 0x80 } else { 0 });
+    let a = cpu.r.a as u16 + m as u16 + c as u16;
+    cpu.r.a = a as u8;
+    cpu.set_flag(status_flag::N, a < 0);
+    cpu.set_flag(status_flag::Z, a == 0);
+    cpu.set_flag(status_flag::V, a > 127 || (a as i16) < -127);
+    cpu.set_flag(status_flag::C, a >= 0);
+}
+pub fn lax<M: Memory>(
+    cpu: &mut R6502<M>,
+    addr_mode: impl Fn(&mut R6502<M>, AMSelect) -> AMValue,
+) {
+    let m = addr_mode(cpu, AMSelect::V).to_value();
+    cpu.r.a = m;
+    cpu.r.x = m;
+    cpu.set_flag(status_flag::N, cpu.r.a & 0x80 != 0);
+    cpu.set_flag(status_flag::Z, cpu.r.a == 0);
+}

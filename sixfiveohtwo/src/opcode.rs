@@ -149,3 +149,8 @@ pub const SED: u8 = 0xF8;
 pub const SBC_YIA: u8 = 0xF9;
 pub const SBC_XIA: u8 = 0xFD;
 pub const INC_XIA: u8 = 0xFE;
+
+// Undocumented opcodes
+pub const ISC_YIA: u8 = 0xFB;
+pub const RRA_ABS: u8 = 0x6F;
+pub const LAX_ZIYI: u8 = 0xB3;

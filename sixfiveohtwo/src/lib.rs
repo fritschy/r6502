@@ -331,12 +331,28 @@ impl<M: Memory> R6502<M> {
 
                 opcode::NOP => instr::nop(self, implied),
 
-                _ => unimplemented!(), //format!("Unimplemented instruvtion code {:x}", ins)),
+                // Undocumented instructions, needed by apple1basic?
+                opcode::ISC_YIA => instr::isc(self, y_indexed_absolute),
+                opcode::RRA_ABS => instr::rra(self, absolute),
+                0x7a | 0xda | 0x04 | 0x1c => instr::nop(self, implied),
+                opcode::LAX_ZIYI => instr::lax(self, zero_page_indirect_y_indexed),
+
+                // 0x02 | 0x12 | 0x22 | 0x32 | 0x42 | 0x52 | 0x62 | 0x72 | 0x92 | 0xb2 | 0xd2 | 0xf2 => {
+                //     // JAM
+                //     eprintln!("JAM! {}", self);
+                //     break;
+                // }
+
+                _ => {
+                    eprintln!("Unhandled instr 0x{:02x}, {}", ins, self);
+                }
             }
 
             if self.got_irq {
                 // handle IRQ, disregard BRK!
             } else if self.r.sr & status_flag::B != 0 {
+                eprintln!("BRK! {}", self);
+                self.r.pc = 0xfffe;
                 // Handle BRK
             }
         }
