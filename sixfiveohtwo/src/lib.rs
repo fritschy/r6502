@@ -72,7 +72,7 @@ pub struct R6502<M> where M: Memory {
 
 impl<M: Memory> Display for R6502<M> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "R6502: {}", self.r)
+        write!(f, "R6502: {}, count:{}", self.r, self.count)
     }
 }
 
@@ -102,11 +102,11 @@ impl<M: Memory> R6502<M> {
     // 0xfffe - 0xffff: BRK/IRQ handler
     fn push(&mut self, v: u8) {
         self.write_byte(0x0100 + self.r.sp as u16, v);
-        self.r.sp -= 1;
+        self.r.sp = self.r.sp.wrapping_sub(1);
     }
 
     fn pop(&mut self) -> u8 {
-        self.r.sp += 1;
+        self.r.sp = self.r.sp.wrapping_add(1);
         self.read_byte(0x0100 + self.r.sp as u16)
     }
 
@@ -146,8 +146,6 @@ impl<M: Memory> R6502<M> {
         while count > 0 {
             count -= 1;
             let ins = self.fetch_byte_with_pc();
-
-            dbg!(self.count, &self.r, ins);
 
             use adressing_mode::*;
 

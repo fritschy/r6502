@@ -222,15 +222,20 @@ pub fn ror<M: Memory>(
     let (o, m) = match m {
         AMValue::Accumulator => {
             let a = cpu.r.a;
-            let b = a.rotate_right(1);
-            cpu.r.a = b;
-            (a, b)
+            let c = a & 0x1;
+            let m = a >> 1;
+            let m = (m & 0x7f) | (if cpu.r.sr & status_flag::C != 0 { 0x80 } else { 0 });
+            cpu.r.a = m;
+            (a, m)
         }
         AMValue::Address(addr) => {
-            let a = cpu.read_byte(addr);
-            let b = a.rotate_right(1);
-            cpu.write_byte(addr, b);
-            (a, b)
+            let m = cpu.read_byte(addr);
+            let a = m;
+            let c = m & 0x1;
+            let m = m >> 1;
+            let m = (m & 0x7f) | (if cpu.r.sr & status_flag::C != 0 { 0x80 } else { 0 });
+            cpu.write_byte(addr, m);
+            (a, m)
         }
         _ => unreachable!(),
     };
