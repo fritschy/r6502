@@ -212,14 +212,14 @@ impl<M: Memory> R6502<M> {
                 opcode::PLA => instr::pla(self, AM::IMPL),
                 opcode::PLP => instr::plp(self, AM::IMPL),
 
-                opcode::ASLA => instr::asl(self, AM::ABS),
-                opcode::ASL_ABS => instr::asl(self, AM::A),
+                opcode::ASLA => instr::asl(self, AM::A),
+                opcode::ASL_ABS => instr::asl(self, AM::ABS),
                 opcode::ASL_XIA => instr::asl(self, AM::XIA),
                 opcode::ASL_ZP => instr::asl(self, AM::Z),
                 opcode::ASL_XIZ => instr::asl(self, AM::XIZ),
 
-                opcode::LSRA => instr::lsr(self, AM::ABS),
-                opcode::LSR_ABS => instr::lsr(self, AM::A),
+                opcode::LSRA => instr::lsr(self, AM::A),
+                opcode::LSR_ABS => instr::lsr(self, AM::ABS),
                 opcode::LSR_XIA => instr::lsr(self, AM::XIA),
                 opcode::LSR_ZP => instr::lsr(self, AM::Z),
                 opcode::LSR_XIZ => instr::lsr(self, AM::XIZ),
