@@ -96,8 +96,6 @@ pub fn txs<M: Memory>(
     _addr_mode: impl Fn(&mut R6502<M>, AMSelect) -> AMValue,
 ) {
     cpu.r.sp = cpu.r.x;
-    cpu.set_flag(status_flag::N, cpu.r.sp & 0x80 != 0);
-    cpu.set_flag(status_flag::Z, cpu.r.sp == 0);
 }
 
 pub fn tya<M: Memory>(
@@ -197,19 +195,24 @@ pub fn rol<M: Memory>(
     let (o, m) = match m {
         AMValue::Accumulator => {
             let a = cpu.r.a;
-            let b = a.rotate_left(1);
-            cpu.r.a = b;
-            (a, b)
+            let c = (a >> 7) & 0x1;
+            let m = a << 1;
+            let m = (m & 0x7f) | (if cpu.r.sr & status_flag::C != 0 { 1 } else { 0 });
+            cpu.r.a = m;
+            (c, m)
         }
         AMValue::Address(addr) => {
-            let a = cpu.read_byte(addr);
-            let b = a.rotate_left(1);
-            cpu.write_byte(addr, b);
-            (a, b)
+            let m = cpu.read_byte(addr);
+            let a = m;
+            let c = (a >> 7) & 0x1;
+            let m = a << 1;
+            let m = (m & 0x7f) | (if cpu.r.sr & status_flag::C != 0 { 1 } else { 0 });
+            cpu.write_byte(addr, m);
+            (c, m)
         }
         _ => unreachable!(),
     };
-    cpu.set_flag(status_flag::C, o & 0x80 != 0);
+    cpu.set_flag(status_flag::C, o != 0);
     cpu.set_flag(status_flag::N, m & 0x80 != 0);
     cpu.set_flag(status_flag::Z, m == 0);
 }
@@ -226,7 +229,7 @@ pub fn ror<M: Memory>(
             let m = a >> 1;
             let m = (m & 0x7f) | (if cpu.r.sr & status_flag::C != 0 { 0x80 } else { 0 });
             cpu.r.a = m;
-            (a, m)
+            (c, m)
         }
         AMValue::Address(addr) => {
             let m = cpu.read_byte(addr);
@@ -235,11 +238,11 @@ pub fn ror<M: Memory>(
             let m = m >> 1;
             let m = (m & 0x7f) | (if cpu.r.sr & status_flag::C != 0 { 0x80 } else { 0 });
             cpu.write_byte(addr, m);
-            (a, m)
+            (c, m)
         }
         _ => unreachable!(),
     };
-    cpu.set_flag(status_flag::C, o & 0x1 != 0);
+    cpu.set_flag(status_flag::C, o != 0);
     cpu.set_flag(status_flag::N, m & 0x80 != 0);
     cpu.set_flag(status_flag::Z, m == 0);
 }
