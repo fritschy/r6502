@@ -255,9 +255,9 @@ const WOZ_MONITOR: [u8; 256] = [
 fn main() {
     let mut mem = Apple1BasicMem::new();
 
-    // for (i, b) in WOZ_MONITOR.iter().enumerate() {
-    //     mem[i as u16 + 0xff00] = *b;
-    // }
+    for (i, b) in WOZ_MONITOR.iter().enumerate() {
+        mem[i as u16 + 0xff00] = *b;
+    }
 
     let mut cpu = R6502::new(mem);
     cpu.reset();

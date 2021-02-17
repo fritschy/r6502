@@ -72,7 +72,7 @@ pub struct R6502<M> where M: Memory {
 
 impl<M: Memory> Display for R6502<M> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "R6502: {}, count:{}", self.r, self.count)
+        write!(f, "R6502: {}", self.r)
     }
 }
 
@@ -145,20 +145,18 @@ impl<M: Memory> R6502<M> {
     pub(crate) fn get_flag(&mut self, flag: u8) -> u8 {
         assert_ne!(flag, 0);
         assert_eq!(flag.count_ones(), 1);
-        if self.r.sr & flag != 0 {
-            1
-        } else {
-            0
-        }
-        // (self.r.sr & flag) >> (flag.next_power_of_two() - 1)
+        (self.r.sr >> flag.trailing_zeros()) & 1
     }
 
     pub fn execute(&mut self, mut count: isize) {
+        let mut ins_count = 0;
+
         while count > 0 {
             count -= 1;
             let ins = self.fetch_byte_with_pc();
+            ins_count += 1;
 
-            eprintln!("instr 0x{:02x}, {}", ins, self);
+            eprintln!("instr 0x{:02x}, {}, {}", ins, self, ins_count);
 
             use adressing_mode::*;
 
