@@ -55,7 +55,7 @@ pub enum AM {
     /// immediate
     IM,
     /// accumulator
-    A,
+    ACC,
     /// absolute
     ABS,
     /// x indexed absolute
@@ -63,9 +63,9 @@ pub enum AM {
     /// y indexed absolute
     YIA,
     /// absolute indirect
-    AI,
+    ABSI,
     /// zero page
-    Z,
+    ZP,
     /// x indexed zero page
     XIZ,
     /// y indexed zero page
@@ -82,8 +82,8 @@ impl AM {
     /// return length of operand in bytes
     pub fn length(self) -> u16 {
         match self {
-            AM::IMPL | AM::A => 0,
-            AM::ABS | AM::AI | AM::XIA | AM::YIA => 2,
+            AM::IMPL | AM::ACC => 0,
+            AM::ABS | AM::ABSI | AM::XIA | AM::YIA => 2,
             _ => 1,
         }
     }
@@ -93,12 +93,12 @@ impl AM {
         match self {
             AM::IMPL => implied,
             AM::IM   => immediate,
-            AM::A    => accumulator,
+            AM::ACC => accumulator,
             AM::ABS  => absolute,
             AM::XIA  => x_indexed_absolute,
             AM::YIA  => y_indexed_absolute,
-            AM::AI   => absolute_indirect,
-            AM::Z    => zero_page,
+            AM::ABSI => absolute_indirect,
+            AM::ZP => zero_page,
             AM::XIZ  => x_indexed_zero_page,
             AM::YIZ  => y_indexed_zero_page,
             AM::XIZI => x_indexed_zero_page_indirect,
