@@ -345,6 +345,7 @@ impl<M: Memory> R6502<M> {
                 /////// opcode::RRA_ABS => instr::rra(self, AddMode::ABS),
                 /////// 0x7a | 0xda | 0x04 | 0x1c => instr::nop(self, AddMode::IMPL),
                 /////// opcode::LAX_ZIYI => instr::lax(self, AddMode::ZIYI),
+                opcode::ISC_XIA => instr::isc(self, AM::XIA),
 
                 // 0x02 | 0x12 | 0x22 | 0x32 | 0x42 | 0x52 | 0x62 | 0x72 | 0x92 | 0xb2 | 0xd2 | 0xf2 => {
                 //     // JAM

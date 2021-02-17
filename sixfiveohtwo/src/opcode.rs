@@ -154,3 +154,4 @@ pub const INC_XIA: u8 = 0xFE;
 pub const ISC_YIA: u8 = 0xFB;
 pub const RRA_ABS: u8 = 0x6F;
 pub const LAX_ZIYI: u8 = 0xB3;
+pub const ISC_XIA: u8 = 0xFF;
