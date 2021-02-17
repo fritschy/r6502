@@ -33,7 +33,7 @@ IN = $0200
 /* FF04 */   0x8C, 0x12, 0xD0, /*             STY DSP         Set it up.  */
 /* FF07 */   0xA9, 0xA7,       /*             LDA #$A7        KBD and DSP control register mask.  */
 /* FF09 */   0x8D, 0x11, 0xD0, /*             STA KBD CR      Enable interrupts, set CA1, CB1, for  */
-/* FF0C */   0x8B, 0x13, 0xD0, /*             STY DSP CR       postitive edge sense/output mode.  */
+/* FF0C */   0x8C, 0x13, 0xD0, /*             STY DSP CR       postitive edge sense/output mode.  */
 /* FF0F */   0xC9, 0xDF,       /* NOTCR       CMP #$DF        "<-"?  */
 /* FF11 */   0xF0, 0x13,       /*             BEQ BACKSAPCE   Yes.  */
 /* FF13 */   0xC9, 0x9B,       /*             CMP #$9B        ESC?  */
