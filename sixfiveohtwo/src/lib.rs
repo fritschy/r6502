@@ -102,11 +102,11 @@ impl<M: Memory> R6502<M> {
     // 0xfffe - 0xffff: BRK/IRQ handler
     fn push(&mut self, v: u8) {
         self.write_byte(0x0100 + self.r.sp as u16, v);
-        self.r.sp = self.r.sp.wrapping_sub(1);
+        self.r.sp -= 1;
     }
 
     fn pop(&mut self) -> u8 {
-        self.r.sp = self.r.sp.wrapping_add(1);
+        self.r.sp += 1;
         self.read_byte(0x0100 + self.r.sp as u16)
     }
 
@@ -140,6 +140,12 @@ impl<M: Memory> R6502<M> {
             true => self.r.sr |= flag,
             false => self.r.sr &= !(flag | status_flag::UNUSED),
         }
+    }
+
+    pub(crate) fn get_flag(&mut self, flag: u8) -> u8 {
+        assert_ne!(flag, 0);
+        assert_eq!(flag.count_ones(), 1);
+        (self.r.sr & flag) >> (flag - 1)
     }
 
     pub fn execute(&mut self, mut count: isize) {

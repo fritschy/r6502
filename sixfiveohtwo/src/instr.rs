@@ -293,8 +293,8 @@ pub fn adc<M: Memory>(
     addr_mode: impl Fn(&mut R6502<M>, AMSelect) -> AMValue,
 ) {
     let m = addr_mode(cpu, AMSelect::V).to_value();
-    let c = cpu.r.sr & 0x1;
-    if cpu.r.sr & status_flag::D == 0 {
+    let c = cpu.get_flag(status_flag::C);
+    if cpu.get_flag(status_flag::D) == 0 {
         let a = cpu.r.a as u16 + m as u16 + c as u16;
         let oa = cpu.r.a;
         cpu.r.a = a as u8;
