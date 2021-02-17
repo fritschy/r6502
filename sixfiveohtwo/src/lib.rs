@@ -145,7 +145,12 @@ impl<M: Memory> R6502<M> {
     pub(crate) fn get_flag(&mut self, flag: u8) -> u8 {
         assert_ne!(flag, 0);
         assert_eq!(flag.count_ones(), 1);
-        (self.r.sr & flag) >> (flag - 1)
+        if self.r.sr & flag != 0 {
+            1
+        } else {
+            0
+        }
+        // (self.r.sr & flag) >> (flag.next_power_of_two() - 1)
     }
 
     pub fn execute(&mut self, mut count: isize) {
