@@ -464,10 +464,13 @@ pub fn jsr<M: Memory>(
     cpu: &mut R6502<M>,
     addr_mode: AM,
 ) {
-    let pc = cpu.r.pc + 2;
+    // let pc = cpu.r.pc + 4 + addr_mode.length();
+    // cpu.push((pc >> 8) as u8);
+    // cpu.push((pc & 0xff) as u8);
+    let addr = addr_mode.dispatch()(cpu, AMSelect::A).to_addr();
+    let pc = cpu.r.pc - 1;
     cpu.push((pc >> 8) as u8);
     cpu.push((pc & 0xff) as u8);
-    let addr = addr_mode.dispatch()(cpu, AMSelect::A).to_addr();
     cpu.r.pc = addr;
     cpu.count += 6;
 }
@@ -514,7 +517,7 @@ pub fn bmi<M: Memory>(
     cpu: &mut R6502<M>,
     addr_mode: AM,
 ) {
-    if cpu.r.sr & status_flag::N != 0 {
+    if cpu.get_flag(status_flag::N) == 1 {
         cpu.r.pc = addr_mode.dispatch()(cpu, AMSelect::A).to_addr();
     } else { cpu.r.pc = cpu.r.pc.wrapping_add(addr_mode.length()); }
 }
@@ -523,7 +526,7 @@ pub fn bne<M: Memory>(
     cpu: &mut R6502<M>,
     addr_mode: AM,
 ) {
-    if cpu.get_flag(status_flag::N) == 1 {
+    if cpu.get_flag(status_flag::Z) == 0 {
         cpu.r.pc = addr_mode.dispatch()(cpu, AMSelect::A).to_addr();
     } else { cpu.r.pc = cpu.r.pc.wrapping_add(addr_mode.length()); }
 }
