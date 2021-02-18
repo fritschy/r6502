@@ -91,6 +91,10 @@ pub fn page(addr: u16) -> u8 {
 pub trait Memory {
     fn read_byte(&mut self, regs: &mut Registers, addr: u16) -> u8;
     fn write_byte(&mut self, regs: &mut Registers, addr: u16, value: u8);
+
+    fn read_word(&mut self, regs: &mut Registers, addr: u16) -> u16 {
+        self.read_byte(regs, addr) as u16 | (self.read_byte(regs, addr + 1) as u16) << 8
+    }
 }
 
 impl<M: Memory> R6502<M> {
@@ -108,6 +112,11 @@ impl<M: Memory> R6502<M> {
     fn pop(&mut self) -> u8 {
         self.r.sp += 1;
         self.read_byte(0x0100 + self.r.sp as u16)
+    }
+
+    pub fn read_word(&mut self, addr: u16) -> u16 {
+        self.count += 2;
+        self.mem.read_word(&mut self.r, addr)
     }
 
     pub fn read_byte(&mut self, addr: u16) -> u8 {
@@ -359,7 +368,7 @@ impl<M: Memory> R6502<M> {
             }
 
             if self.got_irq {
-                self.r.pc = 0xfffe;
+                self.r.pc = self.read_word(0xfffe);
                 self.got_irq = false;
             }
         }
