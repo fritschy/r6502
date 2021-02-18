@@ -2,9 +2,8 @@ use std::ops::{Index, IndexMut};
 
 use stopwatch::Stopwatch;
 
-use sixfiveohtwo::{opcode, Reset, R6502, SimpleMemory, Memory, Registers};
+use sixfiveohtwo::{Reset, R6502, SimpleMemory, Memory, Registers};
 use std::io::{Read, Write};
-use std::any::Any;
 
 struct Apple1BasicMem {
     mem: SimpleMemory,
@@ -37,9 +36,8 @@ impl Memory for Apple1BasicMem {
             0xD011 => {
                 if regs.pc == 0xE006 { // READ
                     return 0x80;
-                } else {
-                    return 0;
                 }
+                return 0;
             }
 
             0xD012 => {
@@ -91,7 +89,7 @@ impl Memory for Apple1BasicMem {
             }
 
             print!("{}", ch as char);
-            std::io::stdout().flush();
+            std::io::stdout().flush().expect("flush()");
 
             return;
         }
@@ -120,7 +118,7 @@ impl Apple1BasicMem {
 }
 
 fn main() {
-    let mut mem = Apple1BasicMem::new();
+    let mem = Apple1BasicMem::new();
 
     let mut cpu = R6502::new(mem);
     cpu.reset();

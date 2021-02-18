@@ -233,7 +233,6 @@ pub fn ror<M: Memory>(
         }
         AMValue::Address(addr) => {
             let m = cpu.read_byte(addr);
-            let a = m;
             let c = m & 0x1;
             let m = m >> 1;
             let m = (m & 0x7f) | (if cpu.r.sr & status_flag::C != 0 { 0x80 } else { 0 });
@@ -635,7 +634,7 @@ pub fn rra<M: Memory>(
     let c = m & 0x1;
     let m = m >> 1;
     let m = (m & 0x7f) | (if cpu.r.sr & status_flag::C != 0 { 0x80 } else { 0 });
-    let a = cpu.r.a as u16 + m as u16 + c as u16;
+    let a = cpu.r.a as i16 + m as i16 + c as i16;
     cpu.r.a = a as u8;
     cpu.set_flag(status_flag::N, a < 0);
     cpu.set_flag(status_flag::Z, a == 0);

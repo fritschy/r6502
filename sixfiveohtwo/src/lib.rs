@@ -169,6 +169,7 @@ impl<M: Memory> R6502<M> {
     }
 
     pub fn execute(&mut self, mut count: isize) {
+        #[allow(unused)]
         let mut ins_count = 0;
 
         while count > 0 {
