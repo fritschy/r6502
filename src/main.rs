@@ -59,7 +59,7 @@ impl Memory for Apple1BasicMem {
             let ch = value;
 
             let s = regs.sp;
-            let a = 1 + (self.mem[0x0100 + s as u16 + 1] as u16) | (self.mem[0x1000 + ((s as u16 + 2) & 0xff)] as u16) << 8;
+            let a = 1 + (self.mem[0x0100 + s as u16 + 1] as u16) | (self.mem[0x0100 + ((s as u16 + 2) & 0xff)] as u16) << 8;
 
             /*
              * Apple I BASIC prints every character received
@@ -90,7 +90,6 @@ impl Memory for Apple1BasicMem {
                 // FIXME: return if stdin is not a tty
             }
 
-            print!("{}", ch as char);
             let chb = [ch];
             std::io::stdout().write(&chb[..]);
             std::io::stdout().flush();
