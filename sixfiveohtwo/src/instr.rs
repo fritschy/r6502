@@ -195,18 +195,28 @@ pub fn rol<M: Memory>(
     let (o, m) = match m {
         AMValue::Accumulator => {
             let a = cpu.r.a;
-            let c = (a >> 7) & 0x1;
-            let m = a << 1;
-            let m = (m & 0x7f) | (if cpu.r.sr & status_flag::C != 0 { 1 } else { 0 });
+
+            // store for new carry
+            let c = a & 0x80;
+            let m = a.rotate_left(1);
+
+            // store current carry
+            let m = (m & 0xfe) | cpu.get_flag(status_flag::C);
+
             cpu.r.a = m;
             (c, m)
         }
         AMValue::Address(addr) => {
             let m = cpu.read_byte(addr);
             let a = m;
-            let c = (a >> 7) & 0x1;
-            let m = a << 1;
-            let m = (m & 0x7f) | (if cpu.r.sr & status_flag::C != 0 { 1 } else { 0 });
+
+            // store for new carry
+            let c = a & 0x80;
+            let m = a.rotate_left(1);
+
+            // store current carry
+            let m = (m & 0xfe) | cpu.get_flag(status_flag::C);
+
             cpu.write_byte(addr, m);
             (c, m)
         }
@@ -225,17 +235,27 @@ pub fn ror<M: Memory>(
     let (o, m) = match m {
         AMValue::Accumulator => {
             let a = cpu.r.a;
-            let c = a & 0x1;
-            let m = a >> 1;
-            let m = (m & 0x7f) | (if cpu.r.sr & status_flag::C != 0 { 0x80 } else { 0 });
+
+            // store for new carry
+            let c = a & 0x01;
+            let m = a.rotate_right(1);
+
+            // store current carry
+            let m = (m & 0x7f) | (cpu.get_flag(status_flag::C) << 7);
+
             cpu.r.a = m;
             (c, m)
         }
         AMValue::Address(addr) => {
             let m = cpu.read_byte(addr);
-            let c = m & 0x1;
-            let m = m >> 1;
-            let m = (m & 0x7f) | (if cpu.r.sr & status_flag::C != 0 { 0x80 } else { 0 });
+
+            // store for new carry
+            let c = m & 0x01;
+            let m = m.rotate_right(1);
+
+            // store current carry
+            let m = (m & 0x7f) | (cpu.get_flag(status_flag::C) << 7);
+
             cpu.write_byte(addr, m);
             (c, m)
         }
@@ -346,6 +366,7 @@ pub fn sbc<M: Memory>(
     let m = addr_mode.dispatch()(cpu, AMSelect::V).to_value();
     let c = cpu.r.sr & 0x1;
     let c = if c == 1 { 0 } else { 1 };
+    let c = 1 & !cpu.get_flag(status_flag::C);
     if cpu.r.sr & status_flag::D == 0 {
         let a = cpu.r.a as i16 - m as i16 - c as i16;
         cpu.r.a = a as u8;
