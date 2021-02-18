@@ -89,21 +89,21 @@ impl AM {
     }
 
     /// return addressing mode implementation function
-    pub fn dispatch<M: Memory>(self) -> impl Fn(&mut R6502<M>, AMSelect) -> AMValue {
+    pub fn dispatch<M: Memory>(self, cpu: &mut R6502<M>, mode: AMSelect) -> AMValue {
         match self {
-            AM::IMPL => implied,
-            AM::IM   => immediate,
-            AM::ACC => accumulator,
-            AM::ABS  => absolute,
-            AM::XIA  => x_indexed_absolute,
-            AM::YIA  => y_indexed_absolute,
-            AM::ABSI => absolute_indirect,
-            AM::ZP => zero_page,
-            AM::XIZ  => x_indexed_zero_page,
-            AM::YIZ  => y_indexed_zero_page,
-            AM::XIZI => x_indexed_zero_page_indirect,
-            AM::ZIYI => zero_page_indirect_y_indexed,
-            AM::REL  => relative,
+            AM::IMPL => implied(cpu, mode),
+            AM::IM   => immediate(cpu, mode),
+            AM::ACC => accumulator(cpu, mode),
+            AM::ABS  => absolute(cpu, mode),
+            AM::XIA  => x_indexed_absolute(cpu, mode),
+            AM::YIA  => y_indexed_absolute(cpu, mode),
+            AM::ABSI => absolute_indirect(cpu, mode),
+            AM::ZP => zero_page(cpu, mode),
+            AM::XIZ  => x_indexed_zero_page(cpu, mode),
+            AM::YIZ  => y_indexed_zero_page(cpu, mode),
+            AM::XIZI => x_indexed_zero_page_indirect(cpu, mode),
+            AM::ZIYI => zero_page_indirect_y_indexed(cpu, mode),
+            AM::REL  => relative(cpu, mode),
         }
     }
 }
