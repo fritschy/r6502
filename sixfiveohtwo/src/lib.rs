@@ -9,6 +9,54 @@ pub trait Reset {
     fn reset(&mut self);
 }
 
+/*
+pub trait Monitor {
+    fn read_request(&mut self, addr: u16) -> Option<u8>;
+    fn write_request(&mut self, addr: u16, value: u8) -> Option<()>;
+    fn opcode(&mut self, i: u8);
+}
+
+pub trait Processor<Mem: Memory, Mon: Monitor>
+{
+    fn push(&mut self, v: u8);
+    fn pop(&mut self) ->  u8;
+
+    fn read_byte(&mut self, addr: u16) -> u8;
+    fn write_byte(&mut self, addr: u16, val: u8);
+
+    fn push_word(&mut self, v: u16) {
+        self.push((v >> 8) as u8);
+        self.push(v as u8);
+    }
+
+    fn pop_word(&mut self) -> u16 {
+        let l = self.pop();
+        let h = self.pop();
+        l as u16 | (h as u16) << 8
+    }
+
+    fn read_word(&mut self, addr: u16) -> u16 {
+        let l = self.read_byte(addr);
+        let h = self.read_byte(addr.wrapping_add(1));
+        l as u16 | (h as u16) << 8
+    }
+
+    fn write_word(&mut self, addr: u16, value: u16) {
+        self.write_byte(addr, value as u8);
+        self.write_byte(addr.wrapping_add(1), (value >> 8) as u8);
+    }
+
+    fn set_flag(&mut self, flag: u8, val: bool);
+    fn get_flag(&mut self, flag: u8) -> u8;
+
+
+    pub fn nmi(&mut self) {
+        // FIXME; this is an IRQ we have to handle?
+        self.got_irq = true;
+    }
+}
+*/
+
 #[derive(Debug, Eq, PartialEq)]
 pub struct Registers {
     pub pc: u16,
@@ -95,6 +143,10 @@ pub trait Memory {
     fn read_word(&mut self, regs: &mut Registers, addr: u16) -> u16 {
         self.read_byte(regs, addr) as u16 | (self.read_byte(regs, addr + 1) as u16) << 8
     }
+}
+
+trait CPU {
+
 }
 
 impl<M: Memory> R6502<M> {
@@ -375,18 +427,18 @@ impl<M: Memory> R6502<M> {
                 // }
 
                 _ => {
-                    eprintln!("Unhandled instr 0x{:02x}, {}", ins, self);
+                    eprintln!("Unhandled instr 0x{:02x}, {}, {}", ins, self, ins_count);
                 }
             }
 
             if self.got_irq {
-                self.r.pc = self.read_word(0xfffe);
+                self.r.pc = self.read_word(0xfffa);
                 self.got_irq = false;
             }
         }
     }
 
-    pub(crate) fn nmi(&mut self) {
+    pub fn nmi(&mut self) {
         // FIXME; this is an IRQ we have to handle?
         self.got_irq = true;
     }
