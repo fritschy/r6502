@@ -434,8 +434,7 @@ pub fn brk<M: Memory>(
 
     let sr = cpu.r.sr;
     let pc = cpu.r.pc.wrapping_add(2);
-    cpu.push((pc >> 8) as u8);
-    cpu.push((pc & 0xff) as u8);
+    cpu.push_word(pc);
     cpu.push(sr);
     cpu.set_flag(status_flag::I, true);
     // load PC
@@ -448,9 +447,7 @@ pub fn rti<M: Memory>(
     _addr_mode: AM,
 ) {
     let sr = cpu.pop();
-    let pcl = cpu.pop();
-    let pch = cpu.pop();
-    let pc = pcl as u16 | (pch as u16) << 8;
+    let pc = cpu.pop_word();
     cpu.r.sr = sr;
     cpu.set_flag(status_flag::B, false);
     cpu.r.pc = pc;
@@ -466,8 +463,7 @@ pub fn jsr<M: Memory>(
     // cpu.push((pc & 0xff) as u8);
     let addr = addr_mode.dispatch()(cpu, AMSelect::A).to_addr();
     let pc = cpu.r.pc - 1;
-    cpu.push((pc >> 8) as u8);
-    cpu.push((pc & 0xff) as u8);
+    cpu.push_word(pc);
     cpu.r.pc = addr;
     cpu.count += 6;
 }
@@ -476,9 +472,7 @@ pub fn rts<M: Memory>(
     cpu: &mut R6502<M>,
     _addr_mode: AM,
 ) {
-    let pcl = cpu.pop();
-    let pch = cpu.pop();
-    let pc = pcl as u16 | (pch as u16) << 8;
+    let pc = cpu.pop_word();
     cpu.r.pc = pc + 1;
     cpu.count += 6;
 }

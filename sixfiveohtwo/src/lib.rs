@@ -114,6 +114,17 @@ impl<M: Memory> R6502<M> {
         self.read_byte(0x0100 + self.r.sp as u16)
     }
 
+    fn push_word(&mut self, v: u16) {
+        self.push((v >> 8) as u8);
+        self.push(v as u8);
+    }
+
+    fn pop_word(&mut self) -> u16 {
+        let l = self.pop();
+        let h = self.pop();
+        l as u16 | (h as u16) << 8
+    }
+
     pub fn read_word(&mut self, addr: u16) -> u16 {
         self.count += 2;
         self.mem.read_word(&mut self.r, addr)

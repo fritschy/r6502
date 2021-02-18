@@ -90,8 +90,7 @@ impl Memory for Apple1BasicMem {
                 // FIXME: return if stdin is not a tty
             }
 
-            let chb = [ch];
-            std::io::stdout().write(&chb[..]);
+            print!("{}", ch as char);
             std::io::stdout().flush();
 
             return;
@@ -122,10 +121,6 @@ impl Apple1BasicMem {
 
 fn main() {
     let mut mem = Apple1BasicMem::new();
-
-    // for (i, b) in WOZ_MONITOR.iter().enumerate() {
-    //     mem[i as u16 + 0xff00] = *b;
-    // }
 
     let mut cpu = R6502::new(mem);
     cpu.reset();
