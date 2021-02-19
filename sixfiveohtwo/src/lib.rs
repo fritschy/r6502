@@ -5,6 +5,9 @@ pub mod addressing_mode;
 pub mod instr;
 pub mod instr_table;
 
+#[cfg(test)]
+mod tests;
+
 pub trait Reset {
     fn reset(&mut self);
 }

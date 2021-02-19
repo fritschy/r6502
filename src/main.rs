@@ -143,6 +143,22 @@ impl Apple1BasicMem {
 }
 
 fn main() {
+    let m = clap::App::new("r6502")
+        .args(&[
+            // clap::Arg::with_name("basic")
+            //     .short("b")
+            //     .long("basic")
+            //     .help("Run Apple 1 BASIC")
+            //     .takes_value(false),
+            clap::Arg::with_name("debug")
+                .short("d")
+                .long("debug")
+                .help("Print every instruction and its machine state")
+        ])
+        .get_matches();
+
+    let debug = m.is_present("debug");
+
     let mem = Apple1BasicMem::new();
 
     let mut cpu = R6502::new(mem);
@@ -156,41 +172,10 @@ fn main() {
 
         let ins = cpu.step();
 
-        // eprintln!("halfcyc:{} phi0:_ AB:____ D:__ RnW:_ PC:{:02X} A:{:02X} X:{:02X} Y:{:02X} SP:{:02X} P:{:02X} IR:{:02X} {}",
-        //           cpu.cycle_count, cpu.r.pc, cpu.r.a, cpu.r.x, cpu.r.y, cpu.r.sp, cpu.r.sr, ins, cpu.mem.last_access,
-        // );
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::*;
-    use sixfiveohtwo::*;
-
-    #[test]
-    fn adc_im() {
-        let mut mem = SimpleMemory::new();
-        mem[0xE000] = 0x69;
-        mem[0xE001] = 0x3;
-        mem[0xE002] = 0x69;
-        mem[0xE003] = 0xff;
-
-        let mut cpu = R6502::new(mem);
-        cpu.reset();
-
-        cpu.r.pc = 0xE000;
-        cpu.r.a = 2;
-
-        let ins = cpu.step();
-        assert_eq!(cpu.r.pc, 0xE002);
-        assert_eq!(ins, 0x69);
-        assert_eq!(cpu.r.a, 0x5);
-        assert!(cpu.get_flag(status_flag::C) == 0);
-
-        let ins = cpu.step();
-        assert_eq!(ins, 0x69);
-        assert_eq!(cpu.r.a, 0xffu8.wrapping_add(0x5));
-        assert!(cpu.get_flag(status_flag::C) == 1);
+        if debug {
+            eprintln!("halfcyc:{} phi0:_ AB:____ D:__ RnW:_ PC:{:02X} A:{:02X} X:{:02X} Y:{:02X} SP:{:02X} P:{:02X} IR:{:02X} {}",
+                      cpu.cycle_count, cpu.r.pc, cpu.r.a, cpu.r.x, cpu.r.y, cpu.r.sp, cpu.r.sr, ins, cpu.mem.last_access,
+            );
+        }
     }
 }
