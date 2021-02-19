@@ -307,23 +307,28 @@ pub fn ora<M: Memory>(
     cpu.set_flag(status_flag::Z, cpu.r.a == 0);
 }
 
+// used by adc and sbc
+fn impl_adc<M: Memory>(cpu: &mut R6502<M>, m: u8) {
+    let c = cpu.get_flag(status_flag::C);
+    if cpu.get_flag(status_flag::D) == 0 {
+        let eq_sign_bits = (cpu.r.a ^ m) & status_flag::N == 0;
+        let a = cpu.r.a as i16 + m as i16 + c as i16;
+        cpu.r.a = a as u8;
+        cpu.set_flag(status_flag::N, cpu.r.a & 0x80 != 0);
+        cpu.set_flag(status_flag::Z, cpu.r.a == 0);
+        cpu.set_flag(status_flag::C, a > 0xff);
+        cpu.set_flag(status_flag::V, eq_sign_bits && ((cpu.r.a ^ m) & status_flag::N) != 0);
+    } else {
+        unimplemented!("Decimal mode is unimplemented!");
+    }
+}
+
 pub fn adc<M: Memory>(
     cpu: &mut R6502<M>,
     addr_mode: AM,
 ) {
     let m = addr_mode.dispatch(cpu, AMSelect::V).to_value();
-    let c = cpu.get_flag(status_flag::C);
-    if cpu.get_flag(status_flag::D) == 0 {
-        let a = cpu.r.a as u16 + m as u16 + c as u16;
-        let oa = cpu.r.a;
-        cpu.r.a = a as u8;
-        cpu.set_flag(status_flag::N, cpu.r.a & 0x80 != 0);
-        cpu.set_flag(status_flag::Z, cpu.r.a == 0);
-        cpu.set_flag(status_flag::C, a & 0x100 != 0);
-        cpu.set_flag(status_flag::V, oa & 0x80 != (a as u8) & 0x80);
-    } else {
-        unimplemented!("Decimal mode is unimplemented!");
-    }
+    impl_adc(cpu, m);
 }
 
 pub fn cmp<M: Memory>(
@@ -364,17 +369,7 @@ pub fn sbc<M: Memory>(
     addr_mode: AM,
 ) {
     let m = addr_mode.dispatch(cpu, AMSelect::V).to_value();
-    let c = 1 & !cpu.get_flag(status_flag::C);
-    if cpu.r.sr & status_flag::D == 0 {
-        let a = cpu.r.a as i16 - m as i16 - c as i16;
-        cpu.r.a = a as u8;
-        cpu.set_flag(status_flag::N, cpu.r.a & 0x80 != 0);
-        cpu.set_flag(status_flag::Z, cpu.r.a == 0);
-        cpu.set_flag(status_flag::C, a >= 0);
-        cpu.set_flag(status_flag::V, a < -127 || a > 127);
-    } else {
-        unimplemented!("Decimal mode is unimplemented!");
-    }
+    impl_adc(cpu, !m);
 }
 
 pub fn dec<M: Memory>(

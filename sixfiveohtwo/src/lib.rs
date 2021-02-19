@@ -67,14 +67,6 @@ pub struct Registers {
     pub x: u8,
     pub y: u8,
 
-    // Processor Status Bits, from low to high
-    // C: Carry
-    // Z: Zero
-    // I: Interrupt Disable
-    // D: Decimal Mode
-    // B: Break
-    // V: Overflow
-    // N: Negative
     pub sr: u8,
 }
 
@@ -94,10 +86,12 @@ impl Registers {
 impl Reset for Registers {
     fn reset(&mut self) {
         self.pc = 0xfffc;
-        self.sp = 0xff; // 0x100 - the 1 is implied
+        self.sp = 0xff;
         self.a = 0;
         self.x = 0;
         self.y = 0;
+        // When initializing perfect6502::apple1basic, these are the flags
+        // that are set on the first instuction being executed:
         self.sr = status_flag::B | status_flag::I | status_flag::Z;
     }
 }
@@ -168,22 +162,22 @@ impl<M: Memory> R6502<M> {
     // 0xfffa - 0xfffb: NMI handler
     // 0xfffc - 0xfffd: power on reset location
     // 0xfffe - 0xffff: BRK/IRQ handler
-    fn push(&mut self, v: u8) {
+    pub fn push(&mut self, v: u8) {
         self.write_byte(0x0100 + self.r.sp as u16, v);
         self.r.sp -= 1;
     }
 
-    fn pop(&mut self) -> u8 {
+    pub fn pop(&mut self) -> u8 {
         self.r.sp += 1;
         self.read_byte(0x0100 + self.r.sp as u16)
     }
 
-    fn push_word(&mut self, v: u16) {
+    pub fn push_word(&mut self, v: u16) {
         self.push((v >> 8) as u8);
         self.push(v as u8);
     }
 
-    fn pop_word(&mut self) -> u16 {
+    pub fn pop_word(&mut self) -> u16 {
         let l = self.pop();
         let h = self.pop();
         l as u16 | (h as u16) << 8
@@ -213,29 +207,26 @@ impl<M: Memory> R6502<M> {
         }
     }
 
-    pub(crate) fn fetch_byte_with_pc(&mut self) -> u8 {
+    pub fn fetch_byte_with_pc(&mut self) -> u8 {
         let b = self.read_byte(self.r.pc);
         self.r.pc += 1;
         b
     }
 
-    pub(crate) fn set_flag(&mut self, flag: u8, val: bool) {
+    pub fn set_flag(&mut self, flag: u8, val: bool) {
         match val {
             true => self.r.sr |= flag,
             false => self.r.sr &= !(flag | status_flag::UNUSED),
         }
     }
 
-    pub(crate) fn get_flag(&mut self, flag: u8) -> u8 {
+    pub fn get_flag(&mut self, flag: u8) -> u8 {
         assert_ne!(flag, 0);
         assert_eq!(flag.count_ones(), 1);
         (self.r.sr >> flag.trailing_zeros()) & 1
     }
 
-    pub fn step(&mut self) -> u64 {
-        // Want to calculate number of cycles at the end
-        let old_count = self.cycle_count;
-
+    pub fn step(&mut self) -> u8 {
         let ins = self.fetch_byte_with_pc();
         self.instr_count += 1;
 
@@ -269,11 +260,7 @@ impl<M: Memory> R6502<M> {
             self.got_irq = false;
         }
 
-        eprintln!("halfcyc:{} phi0:_ AB:____ D:__ RnW:_ PC:{:02X} A:{:02X} X:{:02X} Y:{:02X} SP:{:02X} P:{:02X} IR:{:02X} _$____=$__",
-                  self.cycle_count, self.r.pc, self.r.a, self.r.x, self.r.y, self.r.sp, self.r.sr, ins
-        );
-
-        self.cycle_count - old_count
+        ins
     }
 
     pub fn execute(&mut self, mut count: isize) {
@@ -282,7 +269,12 @@ impl<M: Memory> R6502<M> {
 
         while count > 0 {
             count -= 1;
-            self.step();
+            let ins = self.step();
+
+            eprintln!("halfcyc:{} phi0:_ AB:____ D:__ RnW:_ PC:{:02X} A:{:02X} X:{:02X} Y:{:02X} SP:{:02X} P:{:02X} IR:{:02X} _$____=$__",
+                      self.cycle_count, self.r.pc, self.r.a, self.r.x, self.r.y, self.r.sp, self.r.sr, ins
+            );
+
             ins_count += 1;
         }
     }
@@ -336,7 +328,7 @@ impl Memory for SimpleMemory {
 }
 
 #[allow(unused)]
-mod status_flag {
+pub mod status_flag {
     // Carry
     pub const C: u8 = 0x1;
 

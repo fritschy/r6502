@@ -1,12 +1,30 @@
 use std::ops::{Index, IndexMut};
 
-use stopwatch::Stopwatch;
-
 use sixfiveohtwo::{Reset, R6502, SimpleMemory, Memory, Registers};
 use std::io::{Read, Write};
+use std::fmt::{Display, Formatter};
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+enum RW {
+    Read(u16, u8),
+    Write(u16, u8),
+    None,
+}
+
+impl Display for RW {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        // R$E3D6=$F2
+        match self {
+            RW::Read(a, v) => write!(f, "{}${:04X}=${:02X}", "R", *a, *v),
+            RW::Write(a, v) => write!(f, "{}${:04X}=${:02X}", "W", *a, *v),
+            _ => Ok(()),
+        }
+    }
+}
 
 struct Apple1BasicMem {
     mem: SimpleMemory,
+    last_access: RW,
 }
 
 impl Index<u16> for Apple1BasicMem {
@@ -25,30 +43,36 @@ impl IndexMut<u16> for Apple1BasicMem {
 
 impl Memory for Apple1BasicMem {
     fn read_byte(&mut self, regs: &mut Registers, addr: u16) -> u8 {
-        match addr & 0xFF1F {
-            0xD010 => {
-                let mut b = &mut [0u8][..];
-                std::io::stdin().lock().read_exact(&mut b).expect("read from stdin");
-                let c = if b[0] == 10 { 13 } else { b[0] };
-                return c | 0x80;
-            }
-
-            0xD011 => {
-                if regs.pc == 0xE006 { // READ
-                    return 0x80;
+        let b = (|| {
+            match addr & 0xFF1F {
+                0xD010 => {
+                    let mut b = &mut [0u8][..];
+                    std::io::stdin().lock().read_exact(&mut b).expect("read from stdin");
+                    let c = if b[0] == 10 { 13 } else { b[0] };
+                    return c | 0x80;
                 }
-                return 0;
-            }
 
-            0xD012 => {
-                return 0;
-            }
+                0xD011 => {
+                    if regs.pc == 0xE006 { // READ
+                        return 0x80;
+                    }
+                    return 0;
+                }
 
-            _ => self.mem.read_byte(regs, addr)
-        }
+                0xD012 => {
+                    return 0;
+                }
+
+                _ => self.mem.read_byte(regs, addr)
+            }
+        })();
+        self.last_access = RW::Read(addr, b);
+        b
     }
 
     fn write_byte(&mut self, regs: &mut Registers, addr: u16, value: u8) {
+        self.last_access = RW::Write(addr, value);
+
         if addr & 0xFF1F == 0xD012 {
             let value = value & 0x7f;
             let value = if value == 13 { 10 } else { value };
@@ -80,7 +104,7 @@ impl Memory for Apple1BasicMem {
              * line breaks themselves, so ignore these
              * characters
              */
-            if a==0xe025 && (ch==10 || ch==b' ') {
+            if a == 0xe025 && (ch == 10 || ch == b' ') {
                 return;
             }
 
@@ -113,6 +137,7 @@ impl Apple1BasicMem {
 
         Apple1BasicMem {
             mem,
+            last_access: RW::None,
         }
     }
 }
@@ -126,12 +151,46 @@ fn main() {
     // FIXME; I have no clue how to implement reset vector handling... so... fake it?
     cpu.r.pc = cpu.read_word(0xfffc);
 
-    let cycles = 100000000;
-    let s = Stopwatch::start_new();
-    cpu.execute(cycles);
-    let s = s.elapsed_ms();
+    loop {
+        cpu.mem.last_access = RW::None;
 
-    println!("Executed {} instructions in {}ms", cycles, s);
+        let ins = cpu.step();
 
-    println!("{}", cpu);
+        // eprintln!("halfcyc:{} phi0:_ AB:____ D:__ RnW:_ PC:{:02X} A:{:02X} X:{:02X} Y:{:02X} SP:{:02X} P:{:02X} IR:{:02X} {}",
+        //           cpu.cycle_count, cpu.r.pc, cpu.r.a, cpu.r.x, cpu.r.y, cpu.r.sp, cpu.r.sr, ins, cpu.mem.last_access,
+        // );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::*;
+    use sixfiveohtwo::*;
+
+    #[test]
+    fn adc_im() {
+        let mut mem = SimpleMemory::new();
+        mem[0xE000] = 0x69;
+        mem[0xE001] = 0x3;
+        mem[0xE002] = 0x69;
+        mem[0xE003] = 0xff;
+
+        let mut cpu = R6502::new(mem);
+        cpu.reset();
+
+        cpu.r.pc = 0xE000;
+        cpu.r.a = 2;
+
+        let ins = cpu.step();
+        assert_eq!(cpu.r.pc, 0xE002);
+        assert_eq!(ins, 0x69);
+        assert_eq!(cpu.r.a, 0x5);
+        assert!(cpu.get_flag(status_flag::C) == 0);
+
+        let ins = cpu.step();
+        assert_eq!(ins, 0x69);
+        assert_eq!(cpu.r.a, 0xffu8.wrapping_add(0x5));
+        assert!(cpu.get_flag(status_flag::C) == 1);
+    }
 }
