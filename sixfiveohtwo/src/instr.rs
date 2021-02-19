@@ -1,6 +1,6 @@
 use crate::{status_flag, Memory, R6502};
 
-use crate::adressing_mode::{AMSelect, AMValue, AM};
+use crate::addressing_mode::{AMSelect, AMValue, AM};
 
 use std::ops::{BitAnd, BitOr, BitXor};
 

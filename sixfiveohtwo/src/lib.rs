@@ -1,9 +1,9 @@
-use std::ops::{Index, IndexMut};
 use std::fmt::{Display, Formatter};
+use std::ops::{Index, IndexMut};
 
-pub mod adressing_mode;
+pub mod addressing_mode;
 pub mod instr;
-pub mod opcode;
+pub mod instr_table;
 
 pub trait Reset {
     fn reset(&mut self);
@@ -86,7 +86,7 @@ impl Registers {
             a: 0,
             x: 0,
             y: 0,
-            sr: 0
+            sr: 0,
         }
     }
 }
@@ -98,17 +98,24 @@ impl Reset for Registers {
         self.a = 0;
         self.x = 0;
         self.y = 0;
-        self.sr = self.sr & !status_flag::D;
+        self.sr = status_flag::B | status_flag::I | status_flag::Z;
     }
 }
 
 impl Display for Registers {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "A:{:02x}, X:{:02x}, Y:{:02x}, SP:{:02x}, PC:{:04x}, SR:{:08b}/{:02x}", self.a, self.x, self.y, self.sp, self.pc, self.sr, self.sr)
+        write!(
+            f,
+            "A:{:02x}, X:{:02x}, Y:{:02x}, SP:{:02x}, PC:{:04x}, SR:{:08b}/{:02x}",
+            self.a, self.x, self.y, self.sp, self.pc, self.sr, self.sr
+        )
     }
 }
 
-pub struct R6502<M> where M: Memory {
+pub struct R6502<M>
+where
+    M: 'static + Memory,
+{
     pub r: Registers,
     pub mem: M,
 
@@ -120,7 +127,13 @@ pub struct R6502<M> where M: Memory {
 
 impl<M: Memory> Display for R6502<M> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "R6502: {}, IC:{}, CC:{}", self.r, self.instr_count, self.cycle_count * 2 + 22)
+        write!(
+            f,
+            "R6502: {}, IC:{}, CC:{}",
+            self.r,
+            self.instr_count,
+            self.cycle_count * 2 + 22
+        )
     }
 }
 
@@ -146,9 +159,7 @@ pub trait Memory {
     }
 }
 
-trait CPU {
-
-}
+trait CPU {}
 
 impl<M: Memory> R6502<M> {
     // We have 64KiB memory, of which a number of regions are special purpose:
@@ -228,212 +239,39 @@ impl<M: Memory> R6502<M> {
         let ins = self.fetch_byte_with_pc();
         self.instr_count += 1;
 
-        // eprintln!("instr 0x{:02x}, {}", ins, self);
+        let tbl = instr_table::m6502_instr_table();
 
-        use adressing_mode::AM;
-
-        match ins {
-            opcode::LDA_IM => instr::lda(self, AM::IM),
-            opcode::LDA_ABS => instr::lda(self, AM::ABS),
-            opcode::LDA_XIA => instr::lda(self, AM::XIA),
-            opcode::LDA_YIA => instr::lda(self, AM::YIA),
-            opcode::LDA_ZP => instr::lda(self, AM::ZP),
-            opcode::LDA_XIZ => instr::lda(self, AM::XIZ),
-            opcode::LDA_XIZI => instr::lda(self, AM::XIZI),
-            opcode::LDA_ZIYI => instr::lda(self, AM::ZIYI),
-
-            opcode::LDX_IM => instr::ldx(self, AM::IM),
-            opcode::LDX_ABS => instr::ldx(self, AM::ABS),
-            opcode::LDX_YIA => instr::ldx(self, AM::YIA),
-            opcode::LDX_ZP => instr::ldx(self, AM::ZP),
-            opcode::LDX_YIZ => instr::ldx(self, AM::YIZ),
-
-            opcode::LDY_IM => instr::ldy(self, AM::IM),
-            opcode::LDY_ABS => instr::ldy(self, AM::ABS),
-            opcode::LDY_XIA => instr::ldy(self, AM::XIA),
-            opcode::LDY_ZP => instr::ldy(self, AM::ZP),
-            opcode::LDY_XIZ => instr::ldy(self, AM::XIZ),
-
-            opcode::STA_ABS => instr::sta(self, AM::ABS),
-            opcode::STA_XIA => instr::sta(self, AM::XIA),
-            opcode::STA_YIA => instr::sta(self, AM::YIA),
-            opcode::STA_ZP => instr::sta(self, AM::ZP),
-            opcode::STA_XIZ => instr::sta(self, AM::XIZ),
-            opcode::STA_XIZI => instr::sta(self, AM::XIZI),
-            opcode::STA_ZIYI => instr::sta(self, AM::ZIYI),
-
-            opcode::STX_ABS => instr::stx(self, AM::ABS),
-            opcode::STX_ZP => instr::stx(self, AM::ZP),
-            opcode::STX_YIZ => instr::stx(self, AM::YIZ),
-
-            opcode::STY_ABS => instr::sty(self, AM::ABS),
-            opcode::STY_ZP => instr::sty(self, AM::ZP),
-            opcode::STY_XIZ => instr::sty(self, AM::XIZ),
-
-            opcode::TAX => instr::tax(self, AM::IMPL),
-            opcode::TAY => instr::tay(self, AM::IMPL),
-            opcode::TSX => instr::tsx(self, AM::IMPL),
-            opcode::TXA => instr::txa(self, AM::IMPL),
-            opcode::TXS => instr::txs(self, AM::IMPL),
-            opcode::TYA => instr::tya(self, AM::IMPL),
-
-            opcode::PHA => instr::pha(self, AM::IMPL),
-            opcode::PHP => instr::php(self, AM::IMPL),
-            opcode::PLA => instr::pla(self, AM::IMPL),
-            opcode::PLP => instr::plp(self, AM::IMPL),
-
-            opcode::ASL_ACC => instr::asl(self, AM::ACC),
-            opcode::ASL_ABS => instr::asl(self, AM::ABS),
-            opcode::ASL_XIA => instr::asl(self, AM::XIA),
-            opcode::ASL_ZP => instr::asl(self, AM::ZP),
-            opcode::ASL_XIZ => instr::asl(self, AM::XIZ),
-
-            opcode::LSR_ACC => instr::lsr(self, AM::ACC),
-            opcode::LSR_ABS => instr::lsr(self, AM::ABS),
-            opcode::LSR_XIA => instr::lsr(self, AM::XIA),
-            opcode::LSR_ZP => instr::lsr(self, AM::ZP),
-            opcode::LSR_XIZ => instr::lsr(self, AM::XIZ),
-
-            opcode::ROL_ACC => instr::rol(self, AM::ACC),
-            opcode::ROL_ABS => instr::rol(self, AM::ABS),
-            opcode::ROL_XIA => instr::rol(self, AM::XIA),
-            opcode::ROL_ZP => instr::rol(self, AM::ZP),
-            opcode::ROL_XIZ => instr::rol(self, AM::XIZ),
-
-            opcode::ROR_ACC => instr::ror(self, AM::ACC),
-            opcode::ROR_ABS => instr::ror(self, AM::ABS),
-            opcode::ROR_XIA => instr::ror(self, AM::XIA),
-            opcode::ROR_ZP => instr::ror(self, AM::ZP),
-            opcode::ROR_XIZ => instr::ror(self, AM::XIZ),
-
-            opcode::AND_IM => instr::and(self, AM::IM),
-            opcode::AND_ABS => instr::and(self, AM::ABS),
-            opcode::AND_XIA => instr::and(self, AM::XIA),
-            opcode::AND_YIA => instr::and(self, AM::YIA),
-            opcode::AND_ZP => instr::and(self, AM::ZP),
-            opcode::AND_XIZ => instr::and(self, AM::XIZ),
-            opcode::AND_XIZI => instr::and(self, AM::XIZI),
-            opcode::AND_ZIYI => instr::and(self, AM::ZIYI),
-
-            opcode::BIT_ABS => instr::bit(self, AM::ABS),
-            opcode::BIT_ZP => instr::bit(self, AM::ZP),
-
-            opcode::EOR_IM => instr::eor(self, AM::IM),
-            opcode::EOR_ABS => instr::eor(self, AM::ABS),
-            opcode::EOR_XIA => instr::eor(self, AM::XIA),
-            opcode::EOR_YIA => instr::eor(self, AM::YIA),
-            opcode::EOR_ZP => instr::eor(self, AM::ZP),
-            opcode::EOR_XIZ => instr::eor(self, AM::XIZ),
-            opcode::EOR_XIZI => instr::eor(self, AM::XIZI),
-            opcode::EOR_ZIYI => instr::eor(self, AM::ZIYI),
-
-            opcode::ORA_IM => instr::ora(self, AM::IM),
-            opcode::ORA_ABS => instr::ora(self, AM::ABS),
-            opcode::ORA_XIA => instr::ora(self, AM::XIA),
-            opcode::ORA_YIA => instr::ora(self, AM::YIA),
-            opcode::ORA_ZP => instr::ora(self, AM::ZP),
-            opcode::ORA_XIZ => instr::ora(self, AM::XIZ),
-            opcode::ORA_XIZI => instr::ora(self, AM::XIZI),
-            opcode::ORA_ZIYI => instr::ora(self, AM::ZIYI),
-
-            opcode::ADC_IM => instr::adc(self, AM::IM),
-            opcode::ADC_ABS => instr::adc(self, AM::ABS),
-            opcode::ADC_XIA => instr::adc(self, AM::XIA),
-            opcode::ADC_YIA => instr::adc(self, AM::YIA),
-            opcode::ADC_ZP => instr::adc(self, AM::ZP),
-            opcode::ADC_XIZ => instr::adc(self, AM::XIZ),
-            opcode::ADC_XIZI => instr::adc(self, AM::XIZI),
-            opcode::ADC_ZIYI => instr::adc(self, AM::ZIYI),
-
-            opcode::CMP_IM => instr::cmp(self, AM::IM),
-            opcode::CMP_ABS => instr::cmp(self, AM::ABS),
-            opcode::CMP_XIA => instr::cmp(self, AM::XIA),
-            opcode::CMP_YIA => instr::cmp(self, AM::YIA),
-            opcode::CMP_ZP => instr::cmp(self, AM::ZP),
-            opcode::CMP_XIZ => instr::cmp(self, AM::XIZ),
-            opcode::CMP_XIZI => instr::cmp(self, AM::XIZI),
-            opcode::CMP_ZIYI => instr::cmp(self, AM::ZIYI),
-
-            opcode::CPX_IM => instr::cpx(self, AM::IM),
-            opcode::CPX_ABS => instr::cpx(self, AM::ABS),
-            opcode::CPX_ZP => instr::cpx(self, AM::ZP),
-
-            opcode::CPY_IM => instr::cpy(self, AM::IM),
-            opcode::CPY_ABS => instr::cpy(self, AM::ABS),
-            opcode::CPY_ZP => instr::cpy(self, AM::ZP),
-
-            opcode::SBC_IM => instr::sbc(self, AM::IM),
-            opcode::SBC_ABS => instr::sbc(self, AM::ABS),
-            opcode::SBC_XIA => instr::sbc(self, AM::XIA),
-            opcode::SBC_YIA => instr::sbc(self, AM::YIA),
-            opcode::SBC_ZP => instr::sbc(self, AM::ZP),
-            opcode::SBC_XIZ => instr::sbc(self, AM::XIZ),
-            opcode::SBC_XIZI => instr::sbc(self, AM::XIZI),
-            opcode::SBC_ZIYI => instr::sbc(self, AM::ZIYI),
-
-            opcode::DEC_ABS => instr::dec(self, AM::ABS),
-            opcode::DEC_XIA => instr::dec(self, AM::XIA),
-            opcode::DEC_ZP => instr::dec(self, AM::ZP),
-            opcode::DEC_XIZ => instr::dec(self, AM::XIZ),
-            opcode::DEX => instr::dex(self, AM::IMPL),
-            opcode::DEY => instr::dey(self, AM::IMPL),
-
-            opcode::INC_ABS => instr::inc(self, AM::ABS),
-            opcode::INC_XIA => instr::inc(self, AM::XIA),
-            opcode::INC_ZP => instr::inc(self, AM::ZP),
-            opcode::INC_XIZ => instr::inc(self, AM::XIZ),
-            opcode::INX => instr::inx(self, AM::IMPL),
-            opcode::INY => instr::iny(self, AM::IMPL),
-
-            opcode::BRK => instr::brk(self, AM::IMPL),
-            opcode::JMP_ABS => instr::jmp(self, AM::ABS),
-            opcode::JMP_ABSI => instr::jmp(self, AM::ABSI),
-            opcode::JSR_ABS => instr::jsr(self, AM::ABS),
-            opcode::RTI => instr::rti(self, AM::IMPL),
-            opcode::RTS => instr::rts(self, AM::IMPL),
-
-            opcode::BCC_REL => instr::bcc(self, AM::REL),
-            opcode::BCS_REL => instr::bcs(self, AM::REL),
-            opcode::BEQ_REL => instr::beq(self, AM::REL),
-            opcode::BMI_REL => instr::bmi(self, AM::REL),
-            opcode::BNE_REL => instr::bne(self, AM::REL),
-            opcode::BPL_REL => instr::bpl(self, AM::REL),
-            opcode::BVC_REL => instr::bvc(self, AM::REL),
-            opcode::BVS_REL => instr::bvs(self, AM::REL),
-
-            opcode::CLC => instr::clc(self, AM::IMPL),
-            opcode::CLD => instr::cld(self, AM::IMPL),
-            opcode::CLI => instr::cli(self, AM::IMPL),
-            opcode::CLV => instr::clv(self, AM::IMPL),
-
-            opcode::SEC => instr::sec(self, AM::IMPL),
-            opcode::SED => instr::sed(self, AM::IMPL),
-            opcode::SEI => instr::sei(self, AM::IMPL),
-
-            opcode::NOP => instr::nop(self, AM::IMPL),
-
-            /////// // Undocumented instructions, needed by apple1basic?
-            /////// opcode::ISC_YIA => instr::isc(self, AddMode::YIA),
-            /////// opcode::RRA_ABS => instr::rra(self, AddMode::ABS),
-            /////// 0x7a | 0xda | 0x04 | 0x1c => instr::nop(self, AddMode::IMPL),
-            /////// opcode::LAX_ZIYI => instr::lax(self, AddMode::ZIYI),
-            // opcode::ISC_XIA => instr::isc(self, AM::XIA),
-
-            // 0x02 | 0x12 | 0x22 | 0x32 | 0x42 | 0x52 | 0x62 | 0x72 | 0x92 | 0xb2 | 0xd2 | 0xf2 => {
-            //     // JAM
-            //     eprintln!("JAM! {}", self);
-            //     break;
-            // }
-
-            _ => {
-                eprintln!("Unhandled instr 0x{:02x}, {}", ins, self);
-            }
+        match &tbl[ins as usize] {
+            (instr_table::Instr::None, _am, _fun) => eprintln!("Unhandled instr 0x{:02x}, {}", ins, self),
+            (_, am, fun) => fun(self, *am),
         }
+
+        // match ins {
+        //     /////// // Undocumented instructions, needed by apple1basic?
+        //     /////// opcode::ISC_YIA => instr::isc(self, AddMode::YIA),
+        //     /////// opcode::RRA_ABS => instr::rra(self, AddMode::ABS),
+        //     /////// 0x7a | 0xda | 0x04 | 0x1c => instr::nop(self, AddMode::IMPL),
+        //     /////// opcode::LAX_ZIYI => instr::lax(self, AddMode::ZIYI),
+        //     // opcode::ISC_XIA => instr::isc(self, AM::XIA),
+
+        //     // 0x02 | 0x12 | 0x22 | 0x32 | 0x42 | 0x52 | 0x62 | 0x72 | 0x92 | 0xb2 | 0xd2 | 0xf2 => {
+        //     //     // JAM
+        //     //     eprintln!("JAM! {}", self);
+        //     //     break;
+        //     // }
+        //     _ => {
+        //         eprintln!("Unhandled instr 0x{:02x}, {}", ins, self);
+        //     }
+        // }
 
         if self.got_irq {
             self.r.pc = self.read_word(0xfffa);
             self.got_irq = false;
         }
+
+        eprintln!("halfcyc:{} phi0:_ AB:____ D:__ RnW:_ PC:{:02X} A:{:02X} X:{:02X} Y:{:02X} SP:{:02X} P:{:02X} IR:{:02X} _$____=$__",
+                  self.cycle_count, self.r.pc, self.r.a, self.r.x, self.r.y, self.r.sp, self.r.sr, ins
+        );
 
         self.cycle_count - old_count
     }
