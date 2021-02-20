@@ -120,6 +120,8 @@ where
 
     pub cycle_count: u64,
     pub instr_count: u64,
+
+    pub hlt: bool,
 }
 
 impl<M: Memory> Display for R6502<M> {
@@ -140,6 +142,7 @@ impl<M: Memory> Reset for R6502<M> {
         self.got_irq = false;
         self.cycle_count = 0;
         self.instr_count = 0;
+        self.hlt = false;
     }
 }
 
@@ -207,6 +210,7 @@ impl<M: Memory> R6502<M> {
             cycle_count: 0,
             instr_count: 0,
             mem,
+            hlt: false,
         }
     }
 
@@ -236,7 +240,13 @@ impl<M: Memory> R6502<M> {
         let tbl = instr_table::m6502_instr_table();
 
         match &tbl[ins as usize] {
-            (instr_table::Instr::None, _am, _fun) => eprintln!("Unhandled instr 0x{:02x}, {}", ins, self),
+            (instr_table::Instr::None, _am, _fun) => {
+                if ins == 0x02 {
+                    self.hlt = true;
+                } else {
+                    eprintln!("Unhandled instr 0x{:02x}, {}", ins, self);
+                }
+            }
             (_, am, fun) => fun(self, *am),
         }
 
@@ -278,6 +288,10 @@ impl<M: Memory> R6502<M> {
                       self.cycle_count, self.r.pc, self.r.a, self.r.x, self.r.y, self.r.sp, self.r.sr, ins
             );
 
+            if self.hlt {
+                return;
+            }
+
             ins_count += 1;
         }
     }
@@ -300,9 +314,11 @@ pub struct SimpleMemory {
 
 impl SimpleMemory {
     pub fn new() -> Self {
-        SimpleMemory {
+        let mut mem = SimpleMemory {
             memory: [0u8; 0x10000],
-        }
+        };
+
+        mem
     }
 }
 

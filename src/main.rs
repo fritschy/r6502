@@ -47,9 +47,13 @@ impl Memory for Apple1BasicMem {
             match addr & 0xFF1F {
                 0xD010 => {
                     let mut b = &mut [0u8][..];
-                    std::io::stdin().lock().read_exact(&mut b).expect("read from stdin");
-                    let c = if b[0] == 10 { 13 } else { b[0] };
-                    return c | 0x80;
+                    match std::io::stdin().lock().read_exact(&mut b) {
+                        Err(_) => return 0x80,
+                        Ok(_) => {
+                            let c = if b[0] == 10 { 13 } else { b[0] };
+                            return c | 0x80;
+                        }
+                    }
                 }
 
                 0xD011 => {
@@ -176,6 +180,11 @@ fn main() {
             eprintln!("halfcyc:{} phi0:_ AB:____ D:__ RnW:_ PC:{:02X} A:{:02X} X:{:02X} Y:{:02X} SP:{:02X} P:{:02X} IR:{:02X} {}",
                       cpu.cycle_count, cpu.r.pc, cpu.r.a, cpu.r.x, cpu.r.y, cpu.r.sp, cpu.r.sr, ins, cpu.mem.last_access,
             );
+        }
+
+        if cpu.hlt {
+            eprintln!("EXIT requested!");
+            break;
         }
     }
 }
