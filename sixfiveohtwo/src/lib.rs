@@ -320,6 +320,10 @@ impl SimpleMemory {
 
         mem
     }
+
+    pub fn get_memory(&self) -> &[u8] {
+        &self.memory
+    }
 }
 
 impl Index<u16> for SimpleMemory {
