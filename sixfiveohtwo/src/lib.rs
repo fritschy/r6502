@@ -314,11 +314,9 @@ pub struct SimpleMemory {
 
 impl SimpleMemory {
     pub fn new() -> Self {
-        let mut mem = SimpleMemory {
+        SimpleMemory {
             memory: [0u8; 0x10000],
-        };
-
-        mem
+        }
     }
 
     pub fn get_memory(&self) -> &[u8] {
