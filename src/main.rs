@@ -22,9 +22,26 @@ impl Display for RW {
     }
 }
 
+#[derive(Debug, Eq, PartialEq)]
+enum MemoryAccess {
+    Write{regs: Registers, addr: u16, val: u8},
+    Read{regs: Registers, addr: u16, val: u8},
+}
+
+impl Display for MemoryAccess {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        match self {
+            MemoryAccess::Read{addr, regs, val} => write!(f, "R {} 0x{:04x} -> {:02x}", regs, addr, val),
+            MemoryAccess::Write{addr, regs, val} => write!(f, "W {} 0x{:04x} <- {:02x}", regs, addr, val),
+        }
+    }
+}
+
 struct Apple1BasicMem {
     mem: SimpleMemory,
     last_access: RW,
+    record: bool,
+    accesses: Vec<MemoryAccess>,
 }
 
 impl Index<u16> for Apple1BasicMem {
@@ -71,11 +88,18 @@ impl Memory for Apple1BasicMem {
             }
         })();
         self.last_access = RW::Read(addr, b);
+        if self.record {
+            self.accesses.push(MemoryAccess::Read { addr: addr, regs: regs.clone(), val: b });
+        }
         b
     }
 
     fn write_byte(&mut self, regs: &mut Registers, addr: u16, value: u8) {
         self.last_access = RW::Write(addr, value);
+
+        if self.record {
+            self.accesses.push(MemoryAccess::Write { addr: addr, regs: regs.clone(), val: value });
+        }
 
         if addr & 0xFF1F == 0xD012 {
             let value = value & 0x7f;
@@ -129,7 +153,7 @@ impl Memory for Apple1BasicMem {
 static APPLE_1_BASIC: &[u8; 4096] = include_bytes!("../apple1basic.bin");
 
 impl Apple1BasicMem {
-    fn new() -> Self {
+    fn new(record: bool) -> Self {
         let mut mem = SimpleMemory::new();
 
         for (i, b) in APPLE_1_BASIC.iter().enumerate() {
@@ -142,6 +166,8 @@ impl Apple1BasicMem {
         Apple1BasicMem {
             mem,
             last_access: RW::None,
+            accesses: Vec::new(),
+            record,
         }
     }
 }
@@ -157,13 +183,17 @@ fn main() {
             clap::Arg::with_name("debug")
                 .short("d")
                 .long("debug")
-                .help("Print every instruction and its machine state")
+                .help("Print every instruction and its machine state"),
+            clap::Arg::with_name("memory-debug")
+                .short("m")
+                .long("memory-debug")
+                .help("Record every memory access, output at the end"),
         ])
         .get_matches();
 
     let debug = m.is_present("debug");
 
-    let mem = Apple1BasicMem::new();
+    let mem = Apple1BasicMem::new(m.is_present("memory-debug"));
 
     let mut cpu = R6502::new(mem);
     cpu.reset();
@@ -185,6 +215,13 @@ fn main() {
         if cpu.hlt {
             eprintln!("EXIT requested!");
             break;
+        }
+    }
+
+    if m.is_present("memory-debug") {
+        println!("Memory accesses:");
+        for a in cpu.mem.accesses.iter() {
+            println!("{}", a);
         }
     }
 }

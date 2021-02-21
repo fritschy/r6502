@@ -60,7 +60,7 @@ pub trait Processor<Mem: Memory, Mon: Monitor>
 }
 */
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Registers {
     pub pc: u16,
 
