@@ -39,7 +39,6 @@ impl Display for MemoryAccess {
 
 struct Apple1BasicMem {
     mem: SimpleMemory,
-    last_access: RW,
     record: bool,
     accesses: Vec<MemoryAccess>,
     frame_no: u64,
@@ -90,7 +89,6 @@ impl Memory for Apple1BasicMem {
                 _ => self.mem.read_byte(regs, addr)
             }
         })();
-        self.last_access = RW::Read(addr, b);
         if self.record {
             self.accesses.push(MemoryAccess::Read { addr: addr, regs: regs.clone(), val: b });
         }
@@ -98,8 +96,6 @@ impl Memory for Apple1BasicMem {
     }
 
     fn write_byte(&mut self, regs: &mut Registers, addr: u16, value: u8) {
-        self.last_access = RW::Write(addr, value);
-
         if self.record {
             self.accesses.push(MemoryAccess::Write { addr: addr, regs: regs.clone(), val: value });
         }
@@ -174,7 +170,6 @@ impl Apple1BasicMem {
 
         Apple1BasicMem {
             mem,
-            last_access: RW::None,
             accesses: Vec::new(),
             record,
             frame_no: 0,
@@ -234,13 +229,11 @@ fn main() -> Result<(), std::io::Error> {
     cpu.r.pc = cpu.read_word(0xfffc);
 
     loop {
-        cpu.mem.last_access = RW::None;
-
         let ins = cpu.step();
 
         if debug {
-            eprintln!("halfcyc:{} phi0:_ AB:____ D:__ RnW:_ PC:{:02X} A:{:02X} X:{:02X} Y:{:02X} SP:{:02X} P:{:02X} IR:{:02X} {}",
-                      cpu.cycle_count, cpu.r.pc, cpu.r.a, cpu.r.x, cpu.r.y, cpu.r.sp, cpu.r.sr, ins, cpu.mem.last_access,
+            eprintln!("halfcyc:{} phi0:_ AB:____ D:__ RnW:_ PC:{:02X} A:{:02X} X:{:02X} Y:{:02X} SP:{:02X} P:{:02X} IR:{:02X}",
+                      cpu.cycle_count, cpu.r.pc, cpu.r.a, cpu.r.x, cpu.r.y, cpu.r.sp, cpu.r.sr, ins,
             );
         }
 

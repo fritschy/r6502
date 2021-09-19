@@ -12,7 +12,6 @@ pub trait Reset {
     fn reset(&mut self);
 }
 
-/*
 pub trait Monitor {
     fn read_request(&mut self, addr: u16) -> Option<u8>;
     fn write_request(&mut self, addr: u16, value: u8) -> Option<()>;
@@ -52,13 +51,8 @@ pub trait Processor<Mem: Memory, Mon: Monitor>
     fn set_flag(&mut self, flag: u8, val: bool);
     fn get_flag(&mut self, flag: u8) -> u8;
 
-
-    pub fn nmi(&mut self) {
-        // FIXME; this is an IRQ we have to handle?
-        self.got_irq = true;
-    }
+    fn nmi(&mut self);
 }
-*/
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Registers {
